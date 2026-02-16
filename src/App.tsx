@@ -9,6 +9,7 @@ import ChangePasswordPage from './pages/login/ChangePasswordPage'
 import HomePage from './pages/home/HomePage'
 import AppsPage from './pages/apps/AppsPage'
 import UserManagementPage from './pages/users/UserManagementPage'
+import AuditLogPage from './pages/audit/AuditLogPage'
 import ToastContainer from './components/ui/Toast'
 
 function AppRoutes() {
@@ -28,7 +29,7 @@ function AppRoutes() {
         <Route path="/" element={<HomePage />} />
         <Route path="/apps" element={<AppsPage />} />
         <Route path="/users" element={<UserManagementPage />} />
-        <Route path="/audit" element={<div>Audit Page (TODO)</div>} />
+        <Route path="/audit" element={<AuditLogPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
