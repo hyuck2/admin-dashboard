@@ -7,6 +7,7 @@ import AppLayout from './components/layout/AppLayout'
 import LoginPage from './pages/login/LoginPage'
 import ChangePasswordPage from './pages/login/ChangePasswordPage'
 import HomePage from './pages/home/HomePage'
+import AppsPage from './pages/apps/AppsPage'
 import ToastContainer from './components/ui/Toast'
 
 function AppRoutes() {
@@ -24,7 +25,7 @@ function AppRoutes() {
         }
       >
         <Route path="/" element={<HomePage />} />
-        <Route path="/apps" element={<div>Apps Page (TODO)</div>} />
+        <Route path="/apps" element={<AppsPage />} />
         <Route path="/users" element={<div>Users Page (TODO)</div>} />
         <Route path="/audit" element={<div>Audit Page (TODO)</div>} />
       </Route>
