@@ -1,8 +1,10 @@
 import { useState, type FormEvent } from 'react'
+import { Navigate, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth'
 
 export default function LoginPage() {
-  const { login } = useAuth()
+  const { login, user, token } = useAuth()
+  const navigate = useNavigate()
   const [userId, setUserId] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
@@ -14,11 +16,16 @@ export default function LoginPage() {
     setLoading(true)
     try {
       await login(userId, password)
+      navigate('/', { replace: true })
     } catch (err) {
       setError(err instanceof Error ? err.message : '로그인에 실패했습니다.')
     } finally {
       setLoading(false)
     }
+  }
+
+  if (token && user) {
+    return <Navigate to={user.passwordChanged ? '/' : '/change-password'} replace />
   }
 
   return (
