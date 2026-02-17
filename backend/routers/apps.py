@@ -1,11 +1,15 @@
 import os
 import subprocess
+import logging
 
 import yaml
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session
 
-from config import BANANA_ORG_PATH, BANANA_DEPLOY_PATH
+from config import (
+    BANANA_DEPLOY_GIT_URL, BANANA_DEPLOY_LOCAL_PATH,
+    APP_REPOS_LOCAL_PATH, get_app_git_urls, inject_token,
+)
 from database import get_db
 from models import User, AuditLog
 from schemas import (
@@ -13,17 +17,55 @@ from schemas import (
 )
 from deps import get_current_user
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/apps", tags=["apps"])
 
 EXCLUDED_DIRS = {"common-chart", ".git", "admin-dashboard-frontend", "admin-dashboard-backend"}
 
 
 def _run(cmd: list[str], cwd: str = None) -> subprocess.CompletedProcess:
-    return subprocess.run(cmd, capture_output=True, text=True, cwd=cwd, timeout=60)
+    return subprocess.run(cmd, capture_output=True, text=True, cwd=cwd, timeout=120)
 
 
-def _get_deploy_version(app_name: str, env: str) -> str:
-    env_yaml_path = os.path.join(BANANA_DEPLOY_PATH, app_name, "image", f"{env}.yaml")
+# ---------------------------------------------------------------------------
+# Git repo sync helpers
+# ---------------------------------------------------------------------------
+
+def _sync_repo(git_url: str, local_path: str) -> str:
+    """Clone if not exists, otherwise fetch + reset to origin/master. Returns local_path."""
+    if os.path.isdir(os.path.join(local_path, ".git")):
+        result = _run(["git", "-C", local_path, "fetch", "--all", "--tags"])
+        if result.returncode != 0:
+            logger.warning("git fetch failed for %s: %s", local_path, result.stderr)
+        _run(["git", "-C", local_path, "reset", "--hard", "origin/master"])
+    else:
+        os.makedirs(os.path.dirname(local_path), exist_ok=True)
+        result = _run(["git", "clone", git_url, local_path])
+        if result.returncode != 0:
+            raise HTTPException(status_code=500, detail=f"git clone failed: {result.stderr}")
+    return local_path
+
+
+def _sync_banana_deploy() -> str:
+    """Sync banana-deploy repo and return local path."""
+    return _sync_repo(inject_token(BANANA_DEPLOY_GIT_URL), BANANA_DEPLOY_LOCAL_PATH)
+
+
+def _sync_app_repo(app_name: str) -> str:
+    """Sync an app repo and return local path."""
+    urls = get_app_git_urls()
+    if app_name not in urls:
+        raise HTTPException(status_code=404, detail=f"App '{app_name}' not configured")
+    local_path = os.path.join(APP_REPOS_LOCAL_PATH, app_name)
+    return _sync_repo(inject_token(urls[app_name]), local_path)
+
+
+# ---------------------------------------------------------------------------
+# K8s helpers
+# ---------------------------------------------------------------------------
+
+def _get_deploy_version(deploy_path: str, app_name: str, env: str) -> str:
+    env_yaml_path = os.path.join(deploy_path, app_name, "image", f"{env}.yaml")
     if not os.path.isfile(env_yaml_path):
         return "unknown"
     with open(env_yaml_path, "r") as f:
@@ -49,24 +91,28 @@ def _get_k8s_info(app_name: str, env: str) -> dict:
     current = int(parts[1]) if len(parts) > 1 and parts[1] else 0
     image = parts[2] if len(parts) > 2 else ""
 
-    # image format: "app1:v0.3.0" or "registry/app1:v0.3.0"
     k8s_version = image.split(":")[-1] if ":" in image else "unknown"
 
     return {"k8sVersion": k8s_version, "replicaDesired": desired, "replicaCurrent": current}
 
 
+# ---------------------------------------------------------------------------
+# Endpoints
+# ---------------------------------------------------------------------------
+
 @router.get("", response_model=list[AppStatusResponse])
 def get_apps(current_user: User = Depends(get_current_user)):
+    deploy_path = _sync_banana_deploy()
     apps = []
 
-    for entry in os.listdir(BANANA_DEPLOY_PATH):
+    for entry in os.listdir(deploy_path):
         if entry in EXCLUDED_DIRS:
             continue
-        common_yaml = os.path.join(BANANA_DEPLOY_PATH, entry, "common.yaml")
+        common_yaml = os.path.join(deploy_path, entry, "common.yaml")
         if not os.path.isfile(common_yaml):
             continue
 
-        image_dir = os.path.join(BANANA_DEPLOY_PATH, entry, "image")
+        image_dir = os.path.join(deploy_path, entry, "image")
         if not os.path.isdir(image_dir):
             continue
 
@@ -74,7 +120,7 @@ def get_apps(current_user: User = Depends(get_current_user)):
             if not env_file.endswith(".yaml"):
                 continue
             env = env_file.replace(".yaml", "")
-            deploy_version = _get_deploy_version(entry, env)
+            deploy_version = _get_deploy_version(deploy_path, entry, env)
             k8s_info = _get_k8s_info(entry, env)
 
             sync_status = "Synced" if deploy_version == k8s_info["k8sVersion"] else "OutOfSync"
@@ -97,9 +143,7 @@ def get_tags(
     appName: str = Query(..., description="App name"),
     current_user: User = Depends(get_current_user),
 ):
-    repo_path = os.path.join(BANANA_ORG_PATH, appName)
-    if not os.path.isdir(repo_path):
-        raise HTTPException(status_code=404, detail=f"App repo '{appName}' not found")
+    repo_path = _sync_app_repo(appName)
 
     result = _run([
         "git", "-C", repo_path,
@@ -131,24 +175,24 @@ def rollback(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    deploy_path = _sync_banana_deploy()
     tag = f"{req.appName}-{req.env}-{req.targetVersion}"
 
     # Load image to Kind cluster
-    kind_result = _run([
+    _run([
         "kind", "load", "docker-image",
         f"{req.appName}:{req.targetVersion}",
         "--name", "cluster-staging"
     ])
 
-    # Execute rollback script
+    # Execute rollback script from the synced banana-deploy repo
     result = _run(
         ["bash", "rollback-helm-deploy.sh", tag],
-        cwd=BANANA_DEPLOY_PATH,
+        cwd=deploy_path,
     )
 
     success = result.returncode == 0
 
-    # Record audit log
     audit = AuditLog(
         user_id=current_user.id,
         action="rollback",

@@ -16,6 +16,9 @@ dist-ssr
 __pycache__/
 *.py[cod]
 
+# K8s secrets (never commit)
+k8s/git-token-secret.yaml
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
