@@ -1,10 +1,19 @@
+// Resolve API base: in production (served under /env/appname/), use relative path through nginx proxy.
+// In dev mode (vite proxy on localhost:5173), /api is proxied directly.
+function getApiBase(): string {
+  const { pathname } = window.location
+  // If served under a sub-path like /prod/admin-dashboard-frontend/, prepend it
+  const match = pathname.match(/^(\/[^/]+\/[^/]+\/)/)
+  return match ? `${match[1]}api` : '/api'
+}
+
 export async function apiClient<T = unknown>(
   method: string,
   path: string,
   options?: { body?: unknown; query?: Record<string, string>; pathParams?: string[] },
 ): Promise<T> {
-  // Build URL: pathParams are appended as path segments (e.g., /users + [1] → /users/1)
-  let fullPath = `/api${path}`
+  const apiBase = getApiBase()
+  let fullPath = `${apiBase}${path}`
   if (options?.pathParams?.length) {
     fullPath += `/${options.pathParams.join('/')}`
   }

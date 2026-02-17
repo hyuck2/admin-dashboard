@@ -1,0 +1,33 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: admin-dashboard-backend
+  namespace: admin-dashboard-backend-prod
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: admin-dashboard-backend
+rules:
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    verbs: ["get", "list", "patch", "update"]
+  - apiGroups: ["apps"]
+    resources: ["deployments/scale"]
+    verbs: ["get", "patch", "update"]
+  - apiGroups: [""]
+    resources: ["pods", "services", "namespaces"]
+    verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: admin-dashboard-backend
+subjects:
+  - kind: ServiceAccount
+    name: admin-dashboard-backend
+    namespace: admin-dashboard-backend-prod
+roleRef:
+  kind: ClusterRole
+  name: admin-dashboard-backend
+  apiGroup: rbac.authorization.k8s.io
