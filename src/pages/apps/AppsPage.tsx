@@ -7,7 +7,6 @@ import Badge from '../../components/ui/Badge'
 import Dropdown from '../../components/ui/Dropdown'
 import Spinner from '../../components/ui/Spinner'
 import Button from '../../components/ui/Button'
-import Input from '../../components/ui/Input'
 import RollbackModal from './RollbackModal'
 import ReplicaModal from './ReplicaModal'
 
