@@ -5,7 +5,6 @@ export const mockPermissions: Permission[] = [
   { id: 1, type: 'app_deploy', target: 'app1', action: 'write' },
   { id: 2, type: 'app_deploy', target: 'app2', action: 'write' },
   { id: 3, type: 'page_access', target: 'apps', action: 'read' },
-  { id: 4, type: 'page_access', target: 'apps', action: 'write' },
   { id: 5, type: 'page_access', target: 'users', action: 'read' },
   { id: 6, type: 'page_access', target: 'users', action: 'write' },
   { id: 7, type: 'page_access', target: 'audit', action: 'read' },
@@ -18,7 +17,7 @@ export const mockGroups: Group[] = [
     description: '전체 시스템 관리 권한',
     createdAt: '2026-01-01T00:00:00Z',
     updatedAt: '2026-01-01T00:00:00Z',
-    permissions: [1, 2, 3, 4, 5, 6, 7],
+    permissions: [1, 2, 3, 5, 6, 7],
     members: [1],
   },
   {
@@ -27,7 +26,7 @@ export const mockGroups: Group[] = [
     description: 'UI 앱 배포 및 조회 권한',
     createdAt: '2026-01-15T00:00:00Z',
     updatedAt: '2026-01-15T00:00:00Z',
-    permissions: [1, 2, 3, 4],
+    permissions: [1, 2, 3],
     members: [2],
   },
   {
@@ -64,7 +63,7 @@ export const mockUsers: User[] = [
     createdAt: '2026-01-15T00:00:00Z',
     updatedAt: '2026-01-15T00:00:00Z',
     groups: [2],
-    permissions: [mockPermissions[0], mockPermissions[1], mockPermissions[2], mockPermissions[3]],
+    permissions: [mockPermissions[0], mockPermissions[1], mockPermissions[2]],
   },
   {
     id: 3,
@@ -76,7 +75,7 @@ export const mockUsers: User[] = [
     createdAt: '2026-02-01T00:00:00Z',
     updatedAt: '2026-02-01T00:00:00Z',
     groups: [3],
-    permissions: [mockPermissions[2], mockPermissions[6]],
+    permissions: [mockPermissions[2], mockPermissions[5]],
   },
 ]
 
