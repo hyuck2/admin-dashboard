@@ -22,6 +22,13 @@ export default function RollbackModal({ app, onClose, onComplete }: RollbackModa
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [executing, setExecuting] = useState(false)
   const [filterVersion, setFilterVersion] = useState('')
+  const [elapsed, setElapsed] = useState(0)
+
+  useEffect(() => {
+    if (!executing) { setElapsed(0); return }
+    const id = setInterval(() => setElapsed((s) => s + 1), 1000)
+    return () => clearInterval(id)
+  }, [executing])
 
   useEffect(() => {
     appService.getTags(app.appName).then((data) => {
@@ -59,11 +66,16 @@ export default function RollbackModal({ app, onClose, onComplete }: RollbackModa
       <Modal open onClose={executing ? () => {} : onClose} title={`Rollback - ${app.appName} (${app.env})`}>
         {executing ? (
           <div className="flex flex-col items-center justify-center py-10 gap-3">
-            <Spinner className="h-6 w-6" />
+            <Spinner className="h-8 w-8" />
             <p className="text-sm text-text-secondary">
-              {app.appName} {app.env}를 {selectedTag}으로 롤백 중...
+              {app.appName} {app.env}를 {selectedTag}으로 롤백 중
+              <span className="inline-block w-4 text-left">
+                {'.'.repeat((elapsed % 3) + 1)}
+              </span>
             </p>
-            <p className="text-xs text-text-tertiary">잠시 기다려 주세요.</p>
+            <p className="text-xs text-text-tertiary">
+              경과 시간: {elapsed}초
+            </p>
           </div>
         ) : loading ? (
           <div className="flex justify-center py-8">

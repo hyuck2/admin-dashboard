@@ -186,11 +186,11 @@ def rollback(
     if not os.path.isfile(env_yaml_path):
         raise HTTPException(status_code=404, detail=f"Environment '{req.env}' not found for {req.appName}")
 
-    # Update image tag in env yaml
+    # 1. Update image tag in env yaml
     with open(env_yaml_path, "w") as f:
         yaml.dump({"image": {"tag": req.targetVersion}}, f, default_flow_style=False)
 
-    # Try loading image to Kind cluster (optional, only works in Kind environments)
+    # 2. Try loading image to Kind cluster (optional)
     try:
         _run([
             "kind", "load", "docker-image",
@@ -200,17 +200,11 @@ def rollback(
     except FileNotFoundError:
         logger.info("kind not available, skipping image load")
 
-    # Run helm upgrade directly (no bash dependency)
-    chart_dir = os.path.join(deploy_path, "common-chart")
-    ns = f"{req.appName}-{req.env}"
-
-    result = _run([
-        "helm", "upgrade", "--install", req.appName, chart_dir,
-        "-f", common_yaml,
-        "-f", env_yaml_path,
-        "--set", f"env={req.env}",
-        "--namespace", ns, "--create-namespace",
-    ])
+    # 3. Deploy via bash helm-deploy.sh
+    result = _run(
+        ["bash", "helm-deploy.sh", req.appName, req.env],
+        cwd=deploy_path,
+    )
 
     success = result.returncode == 0
 
