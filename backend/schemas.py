@@ -147,3 +147,90 @@ class PaginatedResponse(BaseModel):
 
 class MessageResponse(BaseModel):
     message: str
+
+
+# --- K8s ---
+class ResourceUsage(BaseModel):
+    total: int  # millicores for CPU, bytes for memory
+    used: int
+    percentage: float
+
+
+class NodeStatus(BaseModel):
+    total: int
+    ready: int
+
+
+class ClusterInfoResponse(BaseModel):
+    name: str
+    context: str
+    apiServer: str
+    status: str  # healthy / unhealthy / unknown
+    nodes: Optional[NodeStatus] = None
+    cpu: Optional[ResourceUsage] = None
+    memory: Optional[ResourceUsage] = None
+
+
+class ClusterListResponse(BaseModel):
+    clusters: list[ClusterInfoResponse]
+    total: int
+
+
+class NodeTaint(BaseModel):
+    key: str
+    value: Optional[str] = None
+    effect: str
+
+
+class NodeInfoResponse(BaseModel):
+    name: str
+    status: str  # Ready / NotReady / Unknown
+    roles: list[str]
+    cpu: Optional[ResourceUsage] = None
+    memory: Optional[ResourceUsage] = None
+    taints: list[NodeTaint] = []
+    labels: dict[str, str] = {}
+    createdAt: Optional[str] = None
+
+
+class NamespaceInfoResponse(BaseModel):
+    name: str
+    status: str
+    cpuUsage: float = 0  # cores
+    memoryUsage: int = 0  # bytes
+    podCount: int = 0
+    createdAt: Optional[str] = None
+
+
+class DeploymentInfoResponse(BaseModel):
+    name: str
+    namespace: str
+    replicas: int
+    readyReplicas: int
+    availableReplicas: int
+    status: str  # Running / Pending / Failed
+    image: Optional[str] = None
+    createdAt: Optional[str] = None
+
+
+class PodLogEntry(BaseModel):
+    podName: str
+    containerName: str
+    status: str
+    logs: str
+
+
+class DeploymentLogsResponse(BaseModel):
+    deployment: str
+    pods: list[PodLogEntry]
+    totalPods: int
+
+
+class ScaleRequest(BaseModel):
+    replicas: int
+
+
+class ScaleResponse(BaseModel):
+    success: bool
+    message: str
+    replicas: int

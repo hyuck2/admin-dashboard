@@ -10,6 +10,10 @@ import HomePage from './pages/home/HomePage'
 import AppsPage from './pages/apps/AppsPage'
 import UserManagementPage from './pages/users/UserManagementPage'
 import AuditLogPage from './pages/audit/AuditLogPage'
+import K8sPage from './pages/k8s/K8sPage'
+import ClusterDetailPage from './pages/k8s/ClusterDetailPage'
+import DeploymentListPage from './pages/k8s/DeploymentListPage'
+import DeploymentDetailPage from './pages/k8s/DeploymentDetailPage'
 import ToastContainer from './components/ui/Toast'
 
 function AppRoutes() {
@@ -29,6 +33,10 @@ function AppRoutes() {
         <Route path="/" element={<HomePage />} />
         <Route path="/apps" element={<AppsPage />} />
         <Route path="/users" element={<UserManagementPage />} />
+        <Route path="/k8s" element={<K8sPage />} />
+        <Route path="/k8s/:context" element={<ClusterDetailPage />} />
+        <Route path="/k8s/:context/:namespace" element={<DeploymentListPage />} />
+        <Route path="/k8s/:context/:namespace/:name" element={<DeploymentDetailPage />} />
         <Route path="/audit" element={<AuditLogPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />

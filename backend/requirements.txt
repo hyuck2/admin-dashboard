@@ -6,3 +6,4 @@ cryptography
 pyjwt
 bcrypt
 pyyaml
+kubernetes
