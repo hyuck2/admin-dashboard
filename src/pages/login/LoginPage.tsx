@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth'
+import { ApiError } from '../../services/api'
 
 export default function LoginPage() {
   const { login, user, token } = useAuth()
@@ -18,7 +19,17 @@ export default function LoginPage() {
       await login(userId, password)
       navigate('/', { replace: true })
     } catch (err) {
-      setError(err instanceof Error ? err.message : '로그인에 실패했습니다.')
+      if (err instanceof ApiError) {
+        if (err.status === 401) {
+          setError('아이디 또는 비밀번호가 잘못되었습니다.')
+        } else if (err.status === 403) {
+          setError('비활성화된 계정입니다.')
+        } else {
+          setError(`서버 오류가 발생했습니다. (${err.status})`)
+        }
+      } else {
+        setError('서버에 연결할 수 없습니다.')
+      }
     } finally {
       setLoading(false)
     }

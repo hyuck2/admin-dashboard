@@ -19,8 +19,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [token, setToken] = useState<string | null>(() => localStorage.getItem('token'))
   const [isLoading, setIsLoading] = useState(true)
 
+  // Only call getMe on mount (page reload with existing token).
+  // After login(), token and user are already set — no need to re-fetch.
   useEffect(() => {
-    if (token) {
+    const savedToken = localStorage.getItem('token')
+    if (savedToken) {
       authService.getMe()
         .then(setUser)
         .catch(() => {
@@ -31,7 +34,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } else {
       setIsLoading(false)
     }
-  }, [token])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const login = useCallback(async (userId: string, password: string) => {
     const response = await authService.login({ userId, password })
