@@ -200,7 +200,20 @@ def rollback(
     except FileNotFoundError:
         logger.info("kind not available, skipping image load")
 
-    # 3. Deploy via bash helm-deploy.sh
+    # 3. Git commit + push the yaml change
+    _run(["git", "-C", deploy_path, "config", "user.email", "admin-dashboard@banana.local"])
+    _run(["git", "-C", deploy_path, "config", "user.name", "admin-dashboard"])
+    _run(["git", "-C", deploy_path, "add", env_yaml_path])
+    commit_result = _run([
+        "git", "-C", deploy_path, "commit",
+        "-m", f"rollback: {req.appName} {req.env} to {req.targetVersion}",
+    ])
+    if commit_result.returncode == 0:
+        push_result = _run(["git", "-C", deploy_path, "push", "origin", "master"])
+        if push_result.returncode != 0:
+            logger.warning("git push failed: %s", push_result.stderr)
+
+    # 4. Deploy via bash helm-deploy.sh
     result = _run(
         ["bash", "helm-deploy.sh", req.appName, req.env],
         cwd=deploy_path,
