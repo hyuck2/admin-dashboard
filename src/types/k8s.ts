@@ -59,6 +59,13 @@ export interface DeploymentInfo {
   status: 'Running' | 'Pending' | 'Failed'
   image: string | null
   createdAt: string | null
+  updatedAt: string | null
+}
+
+export interface PodInfo {
+  name: string
+  status: string
+  containers: { name: string }[]
 }
 
 export interface PodLogEntry {

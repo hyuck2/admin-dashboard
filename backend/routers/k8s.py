@@ -1,8 +1,10 @@
 import logging
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+import yaml as yaml_lib
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, WebSocket, WebSocketDisconnect
 from kubernetes.client.exceptions import ApiException
+from kubernetes import stream as k8s_stream
 from sqlalchemy.orm import Session
 
 from config import KUBECONFIG_PATH
@@ -13,6 +15,8 @@ from schemas import (
     ResourceUsage, NodeStatus, NamespaceInfoResponse,
     DeploymentInfoResponse, DeploymentLogsResponse, PodLogEntry,
     ScaleRequest, ScaleResponse, MessageResponse,
+    DeploymentYamlResponse, DeploymentYamlUpdateRequest,
+    PodInfoResponse, ContainerInfo,
 )
 from deps import get_current_user
 from services.k8s_client import K8sClientManager, parse_cpu, parse_memory
@@ -32,6 +36,18 @@ def _audit(db, user, action, target_type, target_name, detail, result, ip):
         detail=detail, result=result, ip_address=ip,
     ))
     db.commit()
+
+
+def _get_updated_at(deployment) -> str | None:
+    """Extract the most recent last_update_time from deployment conditions."""
+    conditions = deployment.status.conditions or []
+    times = []
+    for c in conditions:
+        if c.last_update_time:
+            times.append(c.last_update_time)
+    if times:
+        return max(times).isoformat()
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -279,6 +295,7 @@ def list_deployments(
             status=status,
             image=image,
             createdAt=d.metadata.creation_timestamp.isoformat() if d.metadata.creation_timestamp else None,
+            updatedAt=_get_updated_at(d),
         ))
 
     return result
@@ -314,6 +331,7 @@ def get_deployment(
         status=status,
         image=image,
         createdAt=d.metadata.creation_timestamp.isoformat() if d.metadata.creation_timestamp else None,
+        updatedAt=_get_updated_at(d),
     )
 
 
@@ -431,6 +449,191 @@ def get_deployment_logs(
         pods=pod_logs,
         totalPods=len(pods),
     )
+
+
+# ---------------------------------------------------------------------------
+# YAML edit
+# ---------------------------------------------------------------------------
+
+@router.get("/clusters/{context}/namespaces/{namespace}/deployments/{name}/yaml", response_model=DeploymentYamlResponse)
+def get_deployment_yaml(
+    context: str,
+    namespace: str,
+    name: str,
+    current_user: User = Depends(get_current_user),
+):
+    try:
+        apps = _k8s.apps_v1(context)
+        d = apps.read_namespaced_deployment(name, namespace)
+    except ApiException as e:
+        raise HTTPException(status_code=e.status or 500, detail=e.reason)
+
+    from kubernetes.client import ApiClient
+    raw = ApiClient().sanitize_for_serialization(d)
+    # Remove noisy managedFields
+    if "metadata" in raw and "managedFields" in raw["metadata"]:
+        del raw["metadata"]["managedFields"]
+
+    return DeploymentYamlResponse(yaml=yaml_lib.dump(raw, default_flow_style=False, allow_unicode=True))
+
+
+@router.put("/clusters/{context}/namespaces/{namespace}/deployments/{name}/yaml", response_model=MessageResponse)
+def update_deployment_yaml(
+    context: str,
+    namespace: str,
+    name: str,
+    req: DeploymentYamlUpdateRequest,
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    try:
+        body = yaml_lib.safe_load(req.yaml)
+    except yaml_lib.YAMLError as e:
+        raise HTTPException(status_code=400, detail=f"Invalid YAML: {e}")
+
+    try:
+        apps = _k8s.apps_v1(context)
+        apps.replace_namespaced_deployment(name, namespace, body)
+    except ApiException as e:
+        _audit(db, current_user, "edit", "deployment", f"{context}/{namespace}/{name}",
+               {"error": str(e)}, "failed",
+               request.client.host if request.client else "")
+        raise HTTPException(status_code=e.status or 500, detail=e.reason)
+
+    _audit(db, current_user, "edit", "deployment", f"{context}/{namespace}/{name}",
+           {}, "success",
+           request.client.host if request.client else "")
+
+    return MessageResponse(message=f"Deployment {name} updated")
+
+
+# ---------------------------------------------------------------------------
+# Pods for exec
+# ---------------------------------------------------------------------------
+
+@router.get("/clusters/{context}/namespaces/{namespace}/deployments/{name}/pods", response_model=list[PodInfoResponse])
+def get_deployment_pods(
+    context: str,
+    namespace: str,
+    name: str,
+    current_user: User = Depends(get_current_user),
+):
+    try:
+        d = _k8s.apps_v1(context).read_namespaced_deployment(name, namespace)
+    except ApiException as e:
+        raise HTTPException(status_code=e.status or 500, detail=e.reason)
+
+    selector = d.spec.selector.match_labels or {}
+    label_selector = ",".join(f"{k}={v}" for k, v in selector.items())
+
+    try:
+        core = _k8s.core_v1(context)
+        pods = core.list_namespaced_pod(namespace, label_selector=label_selector).items
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+    return [
+        PodInfoResponse(
+            name=p.metadata.name,
+            status=p.status.phase or "Unknown",
+            containers=[ContainerInfo(name=c.name) for c in p.spec.containers],
+        )
+        for p in pods
+    ]
+
+
+# ---------------------------------------------------------------------------
+# WebSocket exec
+# ---------------------------------------------------------------------------
+
+@router.websocket("/ws/exec")
+async def ws_exec(ws: WebSocket):
+    import asyncio
+    import threading
+
+    token = ws.query_params.get("token")
+    ctx = ws.query_params.get("context")
+    ns = ws.query_params.get("namespace")
+    pod = ws.query_params.get("pod")
+    container = ws.query_params.get("container")
+
+    if not all([token, ctx, ns, pod, container]):
+        await ws.close(code=1008, reason="Missing parameters")
+        return
+
+    # Authenticate via token
+    try:
+        from deps import decode_token, get_db as _get_db
+        payload = decode_token(token)
+    except Exception:
+        await ws.close(code=1008, reason="Invalid token")
+        return
+
+    await ws.accept()
+
+    # Open K8s exec stream
+    try:
+        core = _k8s.core_v1(ctx)
+        exec_stream = k8s_stream.stream(
+            core.connect_get_namespaced_pod_exec,
+            pod, ns,
+            container=container,
+            command=["/bin/sh"],
+            stderr=True, stdin=True, stdout=True, tty=True,
+            _preload_content=False,
+        )
+    except Exception as e:
+        await ws.send_text(f"\r\nError: {e}\r\n")
+        await ws.close()
+        return
+
+    # Audit log
+    try:
+        db_gen = _get_db()
+        db = next(db_gen)
+        from models import User as UserModel
+        user = db.query(UserModel).filter(UserModel.user_id == payload["userId"]).first()
+        if user:
+            _audit(db, user, "exec", "pod", f"{ctx}/{ns}/{pod}/{container}", {}, "success", "")
+        db.close()
+    except Exception:
+        pass
+
+    closed = False
+
+    # K8s stream -> WebSocket
+    def read_from_k8s():
+        nonlocal closed
+        try:
+            while exec_stream.is_open() and not closed:
+                exec_stream.update(timeout=1)
+                if exec_stream.peek_stdout():
+                    data = exec_stream.read_stdout()
+                    asyncio.run_coroutine_threadsafe(ws.send_text(data), loop)
+                if exec_stream.peek_stderr():
+                    data = exec_stream.read_stderr()
+                    asyncio.run_coroutine_threadsafe(ws.send_text(data), loop)
+        except Exception:
+            pass
+        finally:
+            closed = True
+
+    loop = asyncio.get_event_loop()
+    reader_thread = threading.Thread(target=read_from_k8s, daemon=True)
+    reader_thread.start()
+
+    # WebSocket -> K8s stream
+    try:
+        while not closed:
+            data = await ws.receive_text()
+            if exec_stream.is_open():
+                exec_stream.write_stdin(data)
+    except WebSocketDisconnect:
+        pass
+    finally:
+        closed = True
+        exec_stream.close()
 
 
 # ---------------------------------------------------------------------------

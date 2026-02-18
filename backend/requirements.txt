@@ -7,3 +7,4 @@ pyjwt
 bcrypt
 pyyaml
 kubernetes
+websocket-client

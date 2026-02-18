@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { RefreshCw } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
+import { RefreshCw, Search, ChevronUp, ChevronDown } from 'lucide-react'
 import { k8sService } from '../../services/k8sService'
 import type { NodeInfo } from '../../types/k8s'
 import Table from '../../components/ui/Table'
@@ -7,24 +7,49 @@ import Badge from '../../components/ui/Badge'
 import Button from '../../components/ui/Button'
 import Spinner from '../../components/ui/Spinner'
 
-function ProgressCell({ percentage }: { percentage: number }) {
+function formatCores(millicores: number): string {
+  return `${(millicores / 1000).toFixed(0)} cores`
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes === 0) return '0 B'
+  const gi = bytes / (1024 ** 3)
+  if (gi >= 1) return `${gi.toFixed(1)} GiB`
+  const mi = bytes / (1024 ** 2)
+  return `${mi.toFixed(0)} MiB`
+}
+
+function ProgressCell({ percentage, totalLabel }: { percentage: number; totalLabel: string }) {
   const color = percentage > 80 ? 'bg-danger' : percentage > 60 ? 'bg-warning' : 'bg-accent'
   return (
     <div className="flex items-center gap-2">
       <div className="w-16 h-1.5 bg-bg-tertiary rounded-full overflow-hidden">
         <div className={`h-full rounded-full ${color}`} style={{ width: `${Math.min(percentage, 100)}%` }} />
       </div>
-      <span className="text-xs">{percentage}%</span>
+      <span className="text-xs">{percentage}% ({totalLabel})</span>
     </div>
   )
+}
+
+type SortKey = 'name' | 'status' | 'cpu' | 'memory'
+type SortDir = 'asc' | 'desc'
+
+function SortIcon({ active, dir }: { active: boolean; dir: SortDir }) {
+  if (!active) return <ChevronUp size={12} className="text-text-tertiary opacity-30" />
+  return dir === 'asc'
+    ? <ChevronUp size={12} className="text-accent" />
+    : <ChevronDown size={12} className="text-accent" />
 }
 
 export default function NodeList({ context }: { context: string }) {
   const [nodes, setNodes] = useState<NodeInfo[]>([])
   const [loading, setLoading] = useState(true)
   const [expandedNode, setExpandedNode] = useState<string | null>(null)
+  const [search, setSearch] = useState('')
+  const [sortKey, setSortKey] = useState<SortKey>('name')
+  const [sortDir, setSortDir] = useState<SortDir>('asc')
 
-  const fetch = async () => {
+  const fetchNodes = async () => {
     setLoading(true)
     try {
       setNodes(await k8sService.getNodes(context))
@@ -34,15 +59,65 @@ export default function NodeList({ context }: { context: string }) {
   }
 
   useEffect(() => {
-    fetch()
-    const interval = setInterval(fetch, 15000)
+    fetchNodes()
+    const interval = setInterval(fetchNodes, 15000)
     return () => clearInterval(interval)
   }, [context])
+
+  const toggleSort = (key: SortKey) => {
+    if (sortKey === key) {
+      setSortDir(sortDir === 'asc' ? 'desc' : 'asc')
+    } else {
+      setSortKey(key)
+      setSortDir('asc')
+    }
+  }
+
+  const sortedAndFiltered = useMemo(() => {
+    let result = nodes
+
+    // Filter
+    if (search) {
+      result = result.filter((n) => n.name.toLowerCase().includes(search.toLowerCase()))
+    }
+
+    // Sort
+    const sorted = [...result].sort((a, b) => {
+      let cmp = 0
+      switch (sortKey) {
+        case 'name':
+          cmp = a.name.localeCompare(b.name)
+          break
+        case 'status':
+          cmp = a.status.localeCompare(b.status)
+          break
+        case 'cpu':
+          cmp = (a.cpu?.percentage ?? 0) - (b.cpu?.percentage ?? 0)
+          break
+        case 'memory':
+          cmp = (a.memory?.percentage ?? 0) - (b.memory?.percentage ?? 0)
+          break
+      }
+      return sortDir === 'asc' ? cmp : -cmp
+    })
+
+    return sorted
+  }, [nodes, search, sortKey, sortDir])
+
+  const headerButton = (label: string, key: SortKey) => (
+    <button
+      onClick={() => toggleSort(key)}
+      className="inline-flex items-center gap-1 hover:text-accent"
+    >
+      {label}
+      <SortIcon active={sortKey === key} dir={sortDir} />
+    </button>
+  )
 
   const columns = [
     {
       key: 'name',
-      header: '노드명',
+      header: headerButton('노드명', 'name'),
       render: (n: NodeInfo) => (
         <button
           onClick={() => setExpandedNode(expandedNode === n.name ? null : n.name)}
@@ -54,7 +129,7 @@ export default function NodeList({ context }: { context: string }) {
     },
     {
       key: 'status',
-      header: '상태',
+      header: headerButton('상태', 'status'),
       render: (n: NodeInfo) => (
         <Badge variant={n.status === 'Ready' ? 'success' : 'danger'}>{n.status}</Badge>
       ),
@@ -66,13 +141,17 @@ export default function NodeList({ context }: { context: string }) {
     },
     {
       key: 'cpu',
-      header: 'CPU',
-      render: (n: NodeInfo) => n.cpu ? <ProgressCell percentage={n.cpu.percentage} /> : '-',
+      header: headerButton('CPU', 'cpu'),
+      render: (n: NodeInfo) => n.cpu
+        ? <ProgressCell percentage={n.cpu.percentage} totalLabel={formatCores(n.cpu.total)} />
+        : '-',
     },
     {
       key: 'memory',
-      header: 'Memory',
-      render: (n: NodeInfo) => n.memory ? <ProgressCell percentage={n.memory.percentage} /> : '-',
+      header: headerButton('Memory', 'memory'),
+      render: (n: NodeInfo) => n.memory
+        ? <ProgressCell percentage={n.memory.percentage} totalLabel={formatBytes(n.memory.total)} />
+        : '-',
     },
   ]
 
@@ -86,8 +165,18 @@ export default function NodeList({ context }: { context: string }) {
 
   return (
     <div>
-      <div className="flex items-center justify-end mb-3">
-        <Button variant="ghost" size="sm" onClick={fetch}>
+      <div className="flex items-center justify-between mb-3">
+        <div className="relative">
+          <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-text-tertiary" />
+          <input
+            type="text"
+            placeholder="노드 검색"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-8 pr-3 py-1.5 text-sm bg-bg-primary text-text-primary border border-border-secondary rounded-md focus:outline-none focus:ring-1 focus:ring-accent w-48"
+          />
+        </div>
+        <Button variant="ghost" size="sm" onClick={fetchNodes}>
           <RefreshCw size={14} className="mr-1" />
           새로고침
         </Button>
@@ -95,7 +184,7 @@ export default function NodeList({ context }: { context: string }) {
 
       <Table
         columns={columns}
-        data={nodes}
+        data={sortedAndFiltered}
         keyExtractor={(n) => n.name}
       />
 

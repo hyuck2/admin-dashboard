@@ -11,6 +11,21 @@ import Spinner from '../../components/ui/Spinner'
 import ConfirmModal from '../../components/ui/ConfirmModal'
 import ScaleModal from './ScaleModal'
 import LogViewer from './LogViewer'
+import EditModal from './EditModal'
+import ExecModal from './ExecModal'
+
+function relativeTime(iso: string | null): string {
+  if (!iso) return '-'
+  const diff = Date.now() - new Date(iso).getTime()
+  const sec = Math.floor(diff / 1000)
+  if (sec < 60) return `${sec}초 전`
+  const min = Math.floor(sec / 60)
+  if (min < 60) return `${min}분 전`
+  const hr = Math.floor(min / 60)
+  if (hr < 24) return `${hr}시간 전`
+  const day = Math.floor(hr / 24)
+  return `${day}일 전`
+}
 
 export default function DeploymentListPage() {
   const { context, namespace } = useParams<{ context: string; namespace: string }>()
@@ -19,6 +34,8 @@ export default function DeploymentListPage() {
   const [scaleTarget, setScaleTarget] = useState<DeploymentInfo | null>(null)
   const [logTarget, setLogTarget] = useState<DeploymentInfo | null>(null)
   const [restartTarget, setRestartTarget] = useState<DeploymentInfo | null>(null)
+  const [editTarget, setEditTarget] = useState<DeploymentInfo | null>(null)
+  const [execTarget, setExecTarget] = useState<DeploymentInfo | null>(null)
   const [restarting, setRestarting] = useState(false)
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null)
 
@@ -98,6 +115,13 @@ export default function DeploymentListPage() {
       ),
     },
     {
+      key: 'updatedAt',
+      header: '최근 업데이트',
+      render: (d: DeploymentInfo) => (
+        <span className="text-xs text-text-secondary">{relativeTime(d.updatedAt)}</span>
+      ),
+    },
+    {
       key: 'actions',
       header: '액션',
       className: 'w-16',
@@ -112,6 +136,8 @@ export default function DeploymentListPage() {
             { label: 'Scale', onClick: () => setScaleTarget(d) },
             { label: 'Restart', onClick: () => setRestartTarget(d) },
             { label: 'Logs', onClick: () => setLogTarget(d) },
+            { label: 'Edit', onClick: () => setEditTarget(d) },
+            { label: 'Exec', onClick: () => setExecTarget(d) },
           ]}
         />
       ),
@@ -169,6 +195,26 @@ export default function DeploymentListPage() {
           namespace={namespace}
           deploymentName={logTarget.name}
           onClose={() => setLogTarget(null)}
+        />
+      )}
+
+      {editTarget && (
+        <EditModal
+          context={context}
+          namespace={namespace}
+          deploymentName={editTarget.name}
+          onClose={() => setEditTarget(null)}
+          onComplete={() => { setEditTarget(null); fetchDeploys() }}
+          onToast={showToast}
+        />
+      )}
+
+      {execTarget && (
+        <ExecModal
+          context={context}
+          namespace={namespace}
+          deploymentName={execTarget.name}
+          onClose={() => setExecTarget(null)}
         />
       )}
 

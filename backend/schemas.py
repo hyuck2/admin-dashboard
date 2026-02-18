@@ -211,6 +211,7 @@ class DeploymentInfoResponse(BaseModel):
     status: str  # Running / Pending / Failed
     image: Optional[str] = None
     createdAt: Optional[str] = None
+    updatedAt: Optional[str] = None
 
 
 class PodLogEntry(BaseModel):
@@ -234,3 +235,21 @@ class ScaleResponse(BaseModel):
     success: bool
     message: str
     replicas: int
+
+
+class DeploymentYamlResponse(BaseModel):
+    yaml: str
+
+
+class DeploymentYamlUpdateRequest(BaseModel):
+    yaml: str
+
+
+class ContainerInfo(BaseModel):
+    name: str
+
+
+class PodInfoResponse(BaseModel):
+    name: str
+    status: str
+    containers: list[ContainerInfo]

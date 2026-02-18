@@ -6,6 +6,7 @@ import type {
   DeploymentInfo,
   DeploymentLogsResponse,
   ScaleResponse,
+  PodInfo,
 } from '../types/k8s'
 
 export const k8sService = {
@@ -47,5 +48,19 @@ export const k8sService = {
 
   restartDeployment(context: string, namespace: string, name: string) {
     return apiClient<{ message: string }>('POST', `/k8s/clusters/${context}/namespaces/${namespace}/deployments/${name}/restart`)
+  },
+
+  getDeploymentYaml(context: string, namespace: string, name: string) {
+    return apiClient<{ yaml: string }>('GET', `/k8s/clusters/${context}/namespaces/${namespace}/deployments/${name}/yaml`)
+  },
+
+  updateDeploymentYaml(context: string, namespace: string, name: string, yaml: string) {
+    return apiClient<{ message: string }>('PUT', `/k8s/clusters/${context}/namespaces/${namespace}/deployments/${name}/yaml`, {
+      body: { yaml },
+    })
+  },
+
+  getDeploymentPods(context: string, namespace: string, name: string) {
+    return apiClient<PodInfo[]>('GET', `/k8s/clusters/${context}/namespaces/${namespace}/deployments/${name}/pods`)
   },
 }
