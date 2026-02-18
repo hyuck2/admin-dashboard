@@ -176,7 +176,19 @@ def rollback(
     db: Session = Depends(get_db),
 ):
     deploy_path = _sync_banana_deploy()
-    tag = f"{req.appName}-{req.env}-{req.targetVersion}"
+
+    # Validate app directory exists
+    common_yaml = os.path.join(deploy_path, req.appName, "common.yaml")
+    if not os.path.isfile(common_yaml):
+        raise HTTPException(status_code=404, detail=f"App '{req.appName}' not found in banana-deploy")
+
+    env_yaml_path = os.path.join(deploy_path, req.appName, "image", f"{req.env}.yaml")
+    if not os.path.isfile(env_yaml_path):
+        raise HTTPException(status_code=404, detail=f"Environment '{req.env}' not found for {req.appName}")
+
+    # Update image tag in env yaml
+    with open(env_yaml_path, "w") as f:
+        yaml.dump({"image": {"tag": req.targetVersion}}, f, default_flow_style=False)
 
     # Try loading image to Kind cluster (optional, only works in Kind environments)
     try:
@@ -188,11 +200,17 @@ def rollback(
     except FileNotFoundError:
         logger.info("kind not available, skipping image load")
 
-    # Execute rollback script from the synced banana-deploy repo
-    result = _run(
-        ["bash", "rollback-helm-deploy.sh", tag],
-        cwd=deploy_path,
-    )
+    # Run helm upgrade directly (no bash dependency)
+    chart_dir = os.path.join(deploy_path, "common-chart")
+    ns = f"{req.appName}-{req.env}"
+
+    result = _run([
+        "helm", "upgrade", "--install", req.appName, chart_dir,
+        "-f", common_yaml,
+        "-f", env_yaml_path,
+        "--set", f"env={req.env}",
+        "--namespace", ns, "--create-namespace",
+    ])
 
     success = result.returncode == 0
 
@@ -205,7 +223,6 @@ def rollback(
         detail={
             "env": req.env,
             "targetVersion": req.targetVersion,
-            "tag": tag,
             "stdout": result.stdout[-500:] if result.stdout else "",
             "stderr": result.stderr[-500:] if result.stderr else "",
         },
