@@ -36,9 +36,17 @@ function AppRoutes() {
   )
 }
 
+// Detect sub-path basename (e.g. /prod/admin-dashboard-frontend)
+// Works for both dev (/) and K8s deployment (/env/appname/)
+function getBasename(): string {
+  const { pathname } = window.location
+  const match = pathname.match(/^(\/[^/]+\/[^/]+)/)
+  return match ? match[1] : '/'
+}
+
 export default function App() {
   return (
-    <BrowserRouter>
+    <BrowserRouter basename={getBasename()}>
       <ThemeProvider>
         <AuthProvider>
           <AppRoutes />
