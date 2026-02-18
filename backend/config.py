@@ -9,7 +9,7 @@ APP_REPOS_LOCAL_PATH = os.getenv("APP_REPOS_LOCAL_PATH", "/tmp/app-repos")
 DATABASE_URL = os.getenv("DATABASE_URL", "mysql+pymysql://admin:admin@localhost:3306/admin_dashboard")
 JWT_SECRET = os.getenv("JWT_SECRET", "banana-admin-secret")
 JWT_EXPIRE_HOURS = int(os.getenv("JWT_EXPIRE_HOURS", "24"))
-KUBECONFIG_PATH = os.getenv("KUBECONFIG_PATH", os.path.expanduser("~/.kube/config"))
+KUBECONFIG_PATH = os.getenv("KUBECONFIG_PATH", os.getenv("KUBECONFIG", os.path.expanduser("~/.kube/config")))
 
 
 def inject_token(url: str) -> str:
