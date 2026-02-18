@@ -178,12 +178,15 @@ def rollback(
     deploy_path = _sync_banana_deploy()
     tag = f"{req.appName}-{req.env}-{req.targetVersion}"
 
-    # Load image to Kind cluster
-    _run([
-        "kind", "load", "docker-image",
-        f"{req.appName}:{req.targetVersion}",
-        "--name", "cluster-staging"
-    ])
+    # Try loading image to Kind cluster (optional, only works in Kind environments)
+    try:
+        _run([
+            "kind", "load", "docker-image",
+            f"{req.appName}:{req.targetVersion}",
+            "--name", "cluster-staging"
+        ])
+    except FileNotFoundError:
+        logger.info("kind not available, skipping image load")
 
     # Execute rollback script from the synced banana-deploy repo
     result = _run(

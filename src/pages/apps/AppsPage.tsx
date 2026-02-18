@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { MoreHorizontal, RefreshCw } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
+import { MoreHorizontal, RefreshCw, Search } from 'lucide-react'
 import { appService } from '../../services/appService'
 import type { AppStatus } from '../../types/app'
 import Table from '../../components/ui/Table'
@@ -7,6 +7,7 @@ import Badge from '../../components/ui/Badge'
 import Dropdown from '../../components/ui/Dropdown'
 import Spinner from '../../components/ui/Spinner'
 import Button from '../../components/ui/Button'
+import Input from '../../components/ui/Input'
 import RollbackModal from './RollbackModal'
 import ReplicaModal from './ReplicaModal'
 
@@ -15,6 +16,8 @@ export default function AppsPage() {
   const [loading, setLoading] = useState(true)
   const [rollbackTarget, setRollbackTarget] = useState<AppStatus | null>(null)
   const [replicaTarget, setReplicaTarget] = useState<AppStatus | null>(null)
+  const [filterName, setFilterName] = useState('')
+  const [filterEnv, setFilterEnv] = useState('')
 
   const fetchApps = async () => {
     setLoading(true)
@@ -27,6 +30,19 @@ export default function AppsPage() {
   }
 
   useEffect(() => { fetchApps() }, [])
+
+  const envOptions = useMemo(() => {
+    const envs = new Set(apps.map((a) => a.env))
+    return Array.from(envs).sort()
+  }, [apps])
+
+  const filteredApps = useMemo(() => {
+    return apps.filter((app) => {
+      if (filterName && !app.appName.toLowerCase().includes(filterName.toLowerCase())) return false
+      if (filterEnv && app.env !== filterEnv) return false
+      return true
+    })
+  }, [apps, filterName, filterEnv])
 
   const columns = [
     {
@@ -103,9 +119,40 @@ export default function AppsPage() {
         </Button>
       </div>
 
+      <div className="flex items-center gap-3 mb-4">
+        <div className="relative">
+          <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-text-tertiary" />
+          <input
+            type="text"
+            placeholder="앱 이름 검색"
+            value={filterName}
+            onChange={(e) => setFilterName(e.target.value)}
+            className="pl-8 pr-3 py-1.5 text-sm bg-bg-primary text-text-primary border border-border-secondary rounded-md focus:outline-none focus:ring-1 focus:ring-accent w-48"
+          />
+        </div>
+        <select
+          value={filterEnv}
+          onChange={(e) => setFilterEnv(e.target.value)}
+          className="px-3 py-1.5 text-sm bg-bg-primary text-text-primary border border-border-secondary rounded-md focus:outline-none focus:ring-1 focus:ring-accent"
+        >
+          <option value="">전체 환경</option>
+          {envOptions.map((env) => (
+            <option key={env} value={env}>{env}</option>
+          ))}
+        </select>
+        {(filterName || filterEnv) && (
+          <button
+            onClick={() => { setFilterName(''); setFilterEnv('') }}
+            className="text-xs text-text-tertiary hover:text-text-primary"
+          >
+            필터 초기화
+          </button>
+        )}
+      </div>
+
       <Table
         columns={columns}
-        data={apps}
+        data={filteredApps}
         keyExtractor={(item) => `${item.appName}-${item.env}`}
       />
 

@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { Search } from 'lucide-react'
 import { appService } from '../../services/appService'
 import type { AppStatus, AppTag } from '../../types/app'
 import Modal from '../../components/ui/Modal'
@@ -20,6 +21,7 @@ export default function RollbackModal({ app, onClose, onComplete }: RollbackModa
   const [selectedTag, setSelectedTag] = useState('')
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [executing, setExecuting] = useState(false)
+  const [filterVersion, setFilterVersion] = useState('')
 
   useEffect(() => {
     appService.getTags(app.appName).then((data) => {
@@ -27,6 +29,11 @@ export default function RollbackModal({ app, onClose, onComplete }: RollbackModa
       setLoading(false)
     })
   }, [app.appName])
+
+  const filteredTags = useMemo(() => {
+    if (!filterVersion) return tags
+    return tags.filter((t) => t.tag.toLowerCase().includes(filterVersion.toLowerCase()))
+  }, [tags, filterVersion])
 
   const handleRollback = async () => {
     setExecuting(true)
@@ -49,8 +56,16 @@ export default function RollbackModal({ app, onClose, onComplete }: RollbackModa
 
   return (
     <>
-      <Modal open onClose={onClose} title={`Rollback - ${app.appName} (${app.env})`}>
-        {loading ? (
+      <Modal open onClose={executing ? () => {} : onClose} title={`Rollback - ${app.appName} (${app.env})`}>
+        {executing ? (
+          <div className="flex flex-col items-center justify-center py-10 gap-3">
+            <Spinner className="h-6 w-6" />
+            <p className="text-sm text-text-secondary">
+              {app.appName} {app.env}를 {selectedTag}으로 롤백 중...
+            </p>
+            <p className="text-xs text-text-tertiary">잠시 기다려 주세요.</p>
+          </div>
+        ) : loading ? (
           <div className="flex justify-center py-8">
             <Spinner className="h-5 w-5" />
           </div>
@@ -59,26 +74,40 @@ export default function RollbackModal({ app, onClose, onComplete }: RollbackModa
             <p className="text-xs text-text-secondary mb-3">
               현재 버전: <span className="font-medium text-text-primary">{app.deployVersion}</span>
             </p>
+            <div className="relative mb-2">
+              <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-text-tertiary" />
+              <input
+                type="text"
+                placeholder="버전 검색"
+                value={filterVersion}
+                onChange={(e) => setFilterVersion(e.target.value)}
+                className="w-full pl-8 pr-3 py-1.5 text-sm bg-bg-primary text-text-primary border border-border-secondary rounded-md focus:outline-none focus:ring-1 focus:ring-accent"
+              />
+            </div>
             <div className="space-y-1 max-h-48 overflow-y-auto">
-              {tags.map((tag) => (
-                <button
-                  key={tag.tag}
-                  onClick={() => setSelectedTag(tag.tag)}
-                  className={cn(
-                    'w-full text-left px-3 py-2 rounded-md text-sm flex items-center justify-between',
-                    selectedTag === tag.tag
-                      ? 'bg-accent-light text-accent border border-accent/30'
-                      : 'hover:bg-bg-hover text-text-primary',
-                    tag.tag === app.deployVersion && 'opacity-50',
-                  )}
-                  disabled={tag.tag === app.deployVersion}
-                >
-                  <span>{tag.tag}</span>
-                  {tag.tag === app.deployVersion && (
-                    <span className="text-xs text-text-tertiary">현재</span>
-                  )}
-                </button>
-              ))}
+              {filteredTags.length === 0 ? (
+                <p className="text-xs text-text-tertiary text-center py-4">일치하는 버전이 없습니다.</p>
+              ) : (
+                filteredTags.map((tag) => (
+                  <button
+                    key={tag.tag}
+                    onClick={() => setSelectedTag(tag.tag)}
+                    className={cn(
+                      'w-full text-left px-3 py-2 rounded-md text-sm flex items-center justify-between',
+                      selectedTag === tag.tag
+                        ? 'bg-accent-light text-accent border border-accent/30'
+                        : 'hover:bg-bg-hover text-text-primary',
+                      tag.tag === app.deployVersion && 'opacity-50',
+                    )}
+                    disabled={tag.tag === app.deployVersion}
+                  >
+                    <span>{tag.tag}</span>
+                    {tag.tag === app.deployVersion && (
+                      <span className="text-xs text-text-tertiary">현재</span>
+                    )}
+                  </button>
+                ))
+              )}
             </div>
             <div className="flex justify-end gap-2 mt-4">
               <Button variant="secondary" onClick={onClose}>취소</Button>
