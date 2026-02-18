@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { MoreHorizontal, RefreshCw, Search } from 'lucide-react'
+import { ArrowDown, ArrowUp, ArrowUpDown, MoreHorizontal, RefreshCw, Search } from 'lucide-react'
 import { appService } from '../../services/appService'
 import type { AppStatus } from '../../types/app'
 import Table from '../../components/ui/Table'
@@ -17,6 +17,8 @@ export default function AppsPage() {
   const [replicaTarget, setReplicaTarget] = useState<AppStatus | null>(null)
   const [filterName, setFilterName] = useState('')
   const [filterEnv, setFilterEnv] = useState('')
+  const [sortKey, setSortKey] = useState<string>('')
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
 
   const fetchApps = async () => {
     setLoading(true)
@@ -43,15 +45,53 @@ export default function AppsPage() {
     })
   }, [apps, filterName, filterEnv])
 
+  const sortedApps = useMemo(() => {
+    if (!sortKey) return filteredApps
+    return [...filteredApps].sort((a, b) => {
+      let va: string | number
+      let vb: string | number
+      if (sortKey === 'replica') {
+        va = a.replicaCurrent
+        vb = b.replicaCurrent
+      } else {
+        va = String((a as unknown as Record<string, unknown>)[sortKey] ?? '')
+        vb = String((b as unknown as Record<string, unknown>)[sortKey] ?? '')
+      }
+      if (va < vb) return sortDir === 'asc' ? -1 : 1
+      if (va > vb) return sortDir === 'asc' ? 1 : -1
+      return 0
+    })
+  }, [filteredApps, sortKey, sortDir])
+
+  const handleSort = (key: string) => {
+    if (key === 'actions') return
+    if (sortKey === key) {
+      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))
+    } else {
+      setSortKey(key)
+      setSortDir('asc')
+    }
+  }
+
+  const SortIcon = ({ colKey }: { colKey: string }) => {
+    if (colKey === 'actions') return null
+    if (sortKey !== colKey) return <ArrowUpDown size={12} className="ml-1 opacity-30" />
+    return sortDir === 'asc'
+      ? <ArrowUp size={12} className="ml-1" />
+      : <ArrowDown size={12} className="ml-1" />
+  }
+
   const columns = [
     {
       key: 'appName',
       header: 'App 이름',
+      sortable: true,
       render: (item: AppStatus) => <span className="font-medium">{item.appName}</span>,
     },
     {
       key: 'env',
       header: '환경',
+      sortable: true,
       render: (item: AppStatus) => (
         <Badge variant={item.env === 'prod' ? 'danger' : 'default'}>{item.env}</Badge>
       ),
@@ -59,16 +99,19 @@ export default function AppsPage() {
     {
       key: 'deployVersion',
       header: '배포 버전',
+      sortable: true,
       render: (item: AppStatus) => item.deployVersion,
     },
     {
       key: 'k8sVersion',
       header: 'K8s 버전',
+      sortable: true,
       render: (item: AppStatus) => item.k8sVersion,
     },
     {
       key: 'syncStatus',
       header: '동기화',
+      sortable: true,
       render: (item: AppStatus) => (
         <Badge variant={item.syncStatus === 'Synced' ? 'success' : 'danger'}>
           {item.syncStatus}
@@ -78,6 +121,7 @@ export default function AppsPage() {
     {
       key: 'replica',
       header: 'Replica',
+      sortable: true,
       render: (item: AppStatus) => `${item.replicaCurrent}/${item.replicaDesired}`,
     },
     {
@@ -151,8 +195,12 @@ export default function AppsPage() {
 
       <Table
         columns={columns}
-        data={filteredApps}
+        data={sortedApps}
         keyExtractor={(item) => `${item.appName}-${item.env}`}
+        sortKey={sortKey}
+        sortDir={sortDir}
+        onSort={handleSort}
+        renderSortIcon={(colKey) => <SortIcon colKey={colKey} />}
       />
 
       {rollbackTarget && (

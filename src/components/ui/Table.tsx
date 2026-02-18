@@ -5,6 +5,7 @@ interface Column<T> {
   header: string
   render: (item: T) => React.ReactNode
   className?: string
+  sortable?: boolean
 }
 
 interface TableProps<T> {
@@ -12,9 +13,13 @@ interface TableProps<T> {
   data: T[]
   keyExtractor: (item: T) => string | number
   emptyMessage?: string
+  sortKey?: string
+  sortDir?: 'asc' | 'desc'
+  onSort?: (key: string) => void
+  renderSortIcon?: (colKey: string) => React.ReactNode
 }
 
-export default function Table<T>({ columns, data, keyExtractor, emptyMessage = '데이터가 없습니다.' }: TableProps<T>) {
+export default function Table<T>({ columns, data, keyExtractor, emptyMessage = '데이터가 없습니다.', onSort, renderSortIcon }: TableProps<T>) {
   return (
     <div className="overflow-x-auto border border-border-primary rounded-lg">
       <table className="w-full">
@@ -23,9 +28,17 @@ export default function Table<T>({ columns, data, keyExtractor, emptyMessage = '
             {columns.map((col) => (
               <th
                 key={col.key}
-                className={cn('px-3 py-2 text-left text-xs font-medium text-text-secondary uppercase tracking-wider', col.className)}
+                className={cn(
+                  'px-3 py-2 text-left text-xs font-medium text-text-secondary uppercase tracking-wider',
+                  col.sortable && onSort && 'cursor-pointer select-none hover:text-text-primary',
+                  col.className,
+                )}
+                onClick={col.sortable && onSort ? () => onSort(col.key) : undefined}
               >
-                {col.header}
+                <span className="inline-flex items-center">
+                  {col.header}
+                  {col.sortable && renderSortIcon && renderSortIcon(col.key)}
+                </span>
               </th>
             ))}
           </tr>

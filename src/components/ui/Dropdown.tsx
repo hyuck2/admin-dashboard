@@ -13,6 +13,7 @@ interface DropdownProps {
 
 export default function Dropdown({ trigger, items }: DropdownProps) {
   const [open, setOpen] = useState(false)
+  const [openUp, setOpenUp] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -25,13 +26,26 @@ export default function Dropdown({ trigger, items }: DropdownProps) {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
+  const handleOpen = () => {
+    if (!open && ref.current) {
+      const rect = ref.current.getBoundingClientRect()
+      const spaceBelow = window.innerHeight - rect.bottom
+      setOpenUp(spaceBelow < 120)
+    }
+    setOpen(!open)
+  }
+
   return (
     <div className="relative" ref={ref}>
-      <div onClick={() => setOpen(!open)} className="cursor-pointer">
+      <div onClick={handleOpen} className="cursor-pointer">
         {trigger}
       </div>
       {open && (
-        <div className="absolute right-0 mt-1 w-40 bg-bg-primary border border-border-primary rounded-md shadow-lg z-40 py-1">
+        <div
+          className={`absolute right-0 w-40 bg-bg-primary border border-border-primary rounded-md shadow-lg z-40 py-1 ${
+            openUp ? 'bottom-full mb-1' : 'top-full mt-1'
+          }`}
+        >
           {items.map((item) => (
             <button
               key={item.label}
