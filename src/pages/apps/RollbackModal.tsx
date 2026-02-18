@@ -43,6 +43,7 @@ export default function RollbackModal({ app, onClose, onComplete }: RollbackModa
   }, [tags, filterVersion])
 
   const handleRollback = async () => {
+    setConfirmOpen(false)
     setExecuting(true)
     try {
       await appService.rollback({
@@ -57,7 +58,6 @@ export default function RollbackModal({ app, onClose, onComplete }: RollbackModa
       toast('error', err instanceof Error ? err.message : '롤백에 실패했습니다.')
     } finally {
       setExecuting(false)
-      setConfirmOpen(false)
     }
   }
 
@@ -135,14 +135,13 @@ export default function RollbackModal({ app, onClose, onComplete }: RollbackModa
       </Modal>
 
       <ConfirmModal
-        open={confirmOpen}
+        open={confirmOpen && !executing}
         onClose={() => setConfirmOpen(false)}
         onConfirm={handleRollback}
         title="롤백 확인"
         message={`${app.appName} ${app.env}를 ${selectedTag}으로 롤백합니다. 계속하시겠습니까?`}
         confirmText="롤백 실행"
         danger
-        loading={executing}
       />
     </>
   )
