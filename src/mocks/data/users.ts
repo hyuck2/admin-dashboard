@@ -52,6 +52,7 @@ export const mockUsers: User[] = [
     createdAt: '2026-01-01T00:00:00Z',
     updatedAt: '2026-01-01T00:00:00Z',
     groups: [1],
+    permissions: mockPermissions,
   },
   {
     id: 2,
@@ -63,6 +64,7 @@ export const mockUsers: User[] = [
     createdAt: '2026-01-15T00:00:00Z',
     updatedAt: '2026-01-15T00:00:00Z',
     groups: [2],
+    permissions: [mockPermissions[0], mockPermissions[1], mockPermissions[2], mockPermissions[3]],
   },
   {
     id: 3,
@@ -74,6 +76,7 @@ export const mockUsers: User[] = [
     createdAt: '2026-02-01T00:00:00Z',
     updatedAt: '2026-02-01T00:00:00Z',
     groups: [3],
+    permissions: [mockPermissions[2], mockPermissions[6]],
   },
 ]
 

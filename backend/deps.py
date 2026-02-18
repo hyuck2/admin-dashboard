@@ -57,6 +57,35 @@ def get_current_user(
     return user
 
 
+def get_user_permissions(user: User) -> list[dict]:
+    """Get all permissions for a user (direct + via groups)."""
+    perms = {}
+    # Direct user permissions
+    for p in user.permissions:
+        perms[p.id] = {"id": p.id, "type": p.type, "target": p.target, "action": p.action}
+    # Group permissions
+    for g in user.groups:
+        for p in g.permissions:
+            perms[p.id] = {"id": p.id, "type": p.type, "target": p.target, "action": p.action}
+    return list(perms.values())
+
+
+def has_permission(user: User, perm_type: str, target: str, action: str) -> bool:
+    """Check if user has a specific permission (admin always has all)."""
+    if user.role == "admin":
+        return True
+    for p in get_user_permissions(user):
+        if p["type"] == perm_type and p["target"] == target and p["action"] == action:
+            return True
+    return False
+
+
+def require_permission(user: User, perm_type: str, target: str, action: str):
+    """Raise 403 if user doesn't have the permission."""
+    if not has_permission(user, perm_type, target, action):
+        raise HTTPException(status_code=403, detail=f"권한이 없습니다: {perm_type} {target} {action}")
+
+
 def user_to_response(user: User) -> dict:
     return {
         "id": user.id,
@@ -68,4 +97,5 @@ def user_to_response(user: User) -> dict:
         "createdAt": user.created_at.isoformat() if user.created_at else "",
         "updatedAt": user.updated_at.isoformat() if user.updated_at else "",
         "groups": [g.id for g in user.groups],
+        "permissions": get_user_permissions(user),
     }

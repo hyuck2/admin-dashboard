@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { ArrowDown, ArrowUp, ArrowUpDown, MoreHorizontal, RefreshCw, Search } from 'lucide-react'
 import { appService } from '../../services/appService'
+import { useAuth } from '../../hooks/useAuth'
 import type { AppStatus } from '../../types/app'
 import Table from '../../components/ui/Table'
 import Badge from '../../components/ui/Badge'
@@ -11,6 +12,7 @@ import RollbackModal from './RollbackModal'
 import ReplicaModal from './ReplicaModal'
 
 export default function AppsPage() {
+  const { user } = useAuth()
   const [apps, setApps] = useState<AppStatus[]>([])
   const [loading, setLoading] = useState(true)
   const [rollbackTarget, setRollbackTarget] = useState<AppStatus | null>(null)
@@ -128,19 +130,25 @@ export default function AppsPage() {
       key: 'actions',
       header: '액션',
       className: 'w-16',
-      render: (item: AppStatus) => (
-        <Dropdown
-          trigger={
-            <button className="p-1 rounded-md hover:bg-bg-hover text-text-tertiary">
-              <MoreHorizontal size={16} />
-            </button>
-          }
-          items={[
-            { label: 'Rollback', onClick: () => setRollbackTarget(item) },
-            { label: 'Replica 변경', onClick: () => setReplicaTarget(item) },
-          ]}
-        />
-      ),
+      render: (item: AppStatus) => {
+        const canDeploy = user?.role === 'admin' || user?.permissions?.some(
+          (p) => p.type === 'app_deploy' && p.target === item.appName && p.action === 'write'
+        )
+        if (!canDeploy) return null
+        return (
+          <Dropdown
+            trigger={
+              <button className="p-1 rounded-md hover:bg-bg-hover text-text-tertiary">
+                <MoreHorizontal size={16} />
+              </button>
+            }
+            items={[
+              { label: 'Rollback', onClick: () => setRollbackTarget(item) },
+              { label: 'Replica 변경', onClick: () => setReplicaTarget(item) },
+            ]}
+          />
+        )
+      },
     },
   ]
 

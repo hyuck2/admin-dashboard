@@ -12,6 +12,13 @@ class LoginRequest(BaseModel):
     password: str
 
 
+class UserPermissionItem(BaseModel):
+    id: int
+    type: str
+    target: str
+    action: str
+
+
 class UserResponse(BaseModel):
     id: int
     userId: str
@@ -22,6 +29,7 @@ class UserResponse(BaseModel):
     createdAt: str
     updatedAt: str
     groups: list[int]
+    permissions: list[UserPermissionItem] = []
 
 
 class LoginResponse(BaseModel):

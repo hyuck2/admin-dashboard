@@ -26,6 +26,7 @@ export function handleCreateUser(body: CreateUserRequest, actorName: string) {
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
     groups: body.groups ?? [],
+    permissions: [],
   }
   users.push(newUser)
   passwords[body.userId] = body.password

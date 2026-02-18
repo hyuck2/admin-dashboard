@@ -11,11 +11,11 @@ from config import (
     APP_REPOS_LOCAL_PATH, get_app_git_urls, inject_token,
 )
 from database import get_db
-from models import User, AuditLog
+from models import User, Permission, AuditLog
 from schemas import (
     AppStatusResponse, AppTagResponse, RollbackRequest, ReplicaChangeRequest, MessageResponse
 )
-from deps import get_current_user
+from deps import get_current_user, require_permission
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/apps", tags=["apps"])
@@ -101,9 +101,13 @@ def _get_k8s_info(app_name: str, env: str) -> dict:
 # ---------------------------------------------------------------------------
 
 @router.get("", response_model=list[AppStatusResponse])
-def get_apps(current_user: User = Depends(get_current_user)):
+def get_apps(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
     deploy_path = _sync_banana_deploy()
     apps = []
+    discovered_apps = set()
 
     for entry in os.listdir(deploy_path):
         if entry in EXCLUDED_DIRS:
@@ -115,6 +119,8 @@ def get_apps(current_user: User = Depends(get_current_user)):
         image_dir = os.path.join(deploy_path, entry, "image")
         if not os.path.isdir(image_dir):
             continue
+
+        discovered_apps.add(entry)
 
         for env_file in os.listdir(image_dir):
             if not env_file.endswith(".yaml"):
@@ -134,6 +140,16 @@ def get_apps(current_user: User = Depends(get_current_user)):
                 "replicaCurrent": k8s_info["replicaCurrent"],
                 "replicaDesired": k8s_info["replicaDesired"],
             })
+
+    # Auto-create app_deploy permissions for newly discovered apps
+    existing_targets = {
+        p.target for p in db.query(Permission).filter(Permission.type == "app_deploy").all()
+    }
+    for app_name in discovered_apps:
+        if app_name not in existing_targets:
+            db.add(Permission(type="app_deploy", target=app_name, action="write"))
+            logger.info("Auto-created permission: app_deploy %s write", app_name)
+    db.commit()
 
     return apps
 
@@ -175,6 +191,7 @@ def rollback(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    require_permission(current_user, "app_deploy", req.appName, "write")
     deploy_path = _sync_banana_deploy()
 
     # Validate app directory exists
@@ -252,6 +269,7 @@ def change_replica(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    require_permission(current_user, "app_deploy", req.appName, "write")
     ns = f"{req.appName}-{req.env}"
     deploy_name = f"{req.appName}-{req.env}"
 

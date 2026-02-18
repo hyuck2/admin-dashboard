@@ -1,3 +1,10 @@
+export interface UserPermission {
+  id: number
+  type: string
+  target: string
+  action: string
+}
+
 export interface User {
   id: number
   userId: string
@@ -8,6 +15,7 @@ export interface User {
   createdAt: string
   updatedAt: string
   groups: number[]
+  permissions: UserPermission[]
 }
 
 export interface LoginRequest {
