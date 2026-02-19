@@ -1,10 +1,11 @@
 import { useEffect, useState, useCallback } from 'react'
-import { Plus, Upload, Wifi, RefreshCw, MoreHorizontal, Terminal, Pencil, Trash2 } from 'lucide-react'
+import { Plus, Upload, Wifi, RefreshCw, MoreHorizontal } from 'lucide-react'
 import { serverService } from '../../services/serverService'
 import type { Server, ServerGroup, CreateServerRequest } from '../../types/server'
 import Button from '../../components/ui/Button'
 import Badge from '../../components/ui/Badge'
 import Spinner from '../../components/ui/Spinner'
+import Dropdown from '../../components/ui/Dropdown'
 import ServerModal from './ServerModal'
 import BulkServerModal from './BulkServerModal'
 import SshTerminalModal from './SshTerminalModal'
@@ -20,7 +21,6 @@ export default function ServersTab() {
   const [bulkOpen, setBulkOpen] = useState(false)
   const [editServer, setEditServer] = useState<Server | null>(null)
   const [sshServer, setSshServer] = useState<Server | null>(null)
-  const [actionMenu, setActionMenu] = useState<number | null>(null)
   const [testingIds, setTestingIds] = useState<Set<number>>(new Set())
 
   const fetchData = useCallback(async () => {
@@ -160,29 +160,20 @@ export default function ServersTab() {
                   {testingIds.has(s.id) ? <Spinner className="h-3 w-3" /> : statusBadge(s.status)}
                 </td>
                 <td className="px-3 py-2 text-text-secondary">{s.osInfo || '-'}</td>
-                <td className="px-3 py-2 text-right relative">
-                  <button
-                    onClick={() => setActionMenu(actionMenu === s.id ? null : s.id)}
-                    className="p-1 rounded hover:bg-bg-active text-text-tertiary"
-                  >
-                    <MoreHorizontal size={14} />
-                  </button>
-                  {actionMenu === s.id && (
-                    <div className="absolute right-0 top-8 z-20 bg-bg-secondary border border-border-primary rounded-md shadow-lg py-1 w-36">
-                      <button onClick={() => { setSshServer(s); setActionMenu(null) }} className="w-full px-3 py-1.5 text-left text-xs hover:bg-bg-hover flex items-center gap-2 text-text-primary">
-                        <Terminal size={12} />SSH 접속
+                <td className="px-3 py-2 text-right">
+                  <Dropdown
+                    trigger={
+                      <button className="p-1 rounded hover:bg-bg-active text-text-tertiary">
+                        <MoreHorizontal size={14} />
                       </button>
-                      <button onClick={() => { handleTestSsh(s.id); setActionMenu(null) }} className="w-full px-3 py-1.5 text-left text-xs hover:bg-bg-hover flex items-center gap-2 text-text-primary">
-                        <Wifi size={12} />SSH 테스트
-                      </button>
-                      <button onClick={() => { setEditServer(s); setActionMenu(null) }} className="w-full px-3 py-1.5 text-left text-xs hover:bg-bg-hover flex items-center gap-2 text-text-primary">
-                        <Pencil size={12} />편집
-                      </button>
-                      <button onClick={() => { handleDelete(s.id); setActionMenu(null) }} className="w-full px-3 py-1.5 text-left text-xs hover:bg-bg-hover flex items-center gap-2 text-danger">
-                        <Trash2 size={12} />삭제
-                      </button>
-                    </div>
-                  )}
+                    }
+                    items={[
+                      { label: 'SSH 접속', onClick: () => setSshServer(s) },
+                      { label: 'SSH 테스트', onClick: () => handleTestSsh(s.id) },
+                      { label: '편집', onClick: () => setEditServer(s) },
+                      { label: '삭제', onClick: () => handleDelete(s.id), danger: true },
+                    ]}
+                  />
                 </td>
               </tr>
             ))}

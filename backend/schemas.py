@@ -324,6 +324,7 @@ class SshTestResult(BaseModel):
     ipAddress: str
     success: bool
     message: str
+    osInfo: str = ""
 
 
 class SshTestBulkRequest(BaseModel):

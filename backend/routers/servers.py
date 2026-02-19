@@ -305,15 +305,27 @@ def _test_ssh(server: Server) -> SshTestResult:
             username=server.ssh_username, password=password,
             timeout=5, allow_agent=False, look_for_keys=False,
         )
+        # Detect OS info
+        os_info = ""
+        try:
+            _, stdout, _ = client.exec_command(
+                "grep PRETTY_NAME /etc/os-release 2>/dev/null | cut -d'\"' -f2 || uname -s -r",
+                timeout=5,
+            )
+            os_info = stdout.read().decode("utf-8", errors="replace").strip()
+        except Exception:
+            pass
         client.close()
         return SshTestResult(
             serverId=server.id, hostname=server.hostname,
             ipAddress=server.ip_address, success=True, message="SSH 접속 성공",
+            osInfo=os_info,
         )
     except Exception as e:
         return SshTestResult(
             serverId=server.id, hostname=server.hostname,
             ipAddress=server.ip_address, success=False, message=str(e),
+            osInfo="",
         )
 
 
@@ -331,6 +343,8 @@ def test_ssh(
     result = _test_ssh(s)
     s.status = "online" if result.success else "offline"
     s.last_checked_at = datetime.now(timezone.utc)
+    if result.osInfo:
+        s.os_info = result.osInfo
     db.commit()
     return result
 
@@ -353,6 +367,8 @@ def test_ssh_bulk(
             s = futures[future]
             s.status = "online" if result.success else "offline"
             s.last_checked_at = datetime.now(timezone.utc)
+            if result.osInfo:
+                s.os_info = result.osInfo
     db.commit()
     return results
 

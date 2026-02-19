@@ -24,6 +24,13 @@ interface ParsedRow {
   message: string
 }
 
+function looksLikeHeader(fields: string[]): boolean {
+  const lower = fields.map((f) => f.toLowerCase())
+  const headerKeywords = ['hostname', 'host', 'ip', 'address', 'port', 'user', 'pass', 'password', '호스트', '주소', '포트', '사용자', '비밀번호']
+  const matches = lower.filter((f) => headerKeywords.some((k) => f.includes(k)))
+  return matches.length >= 2
+}
+
 function parseClipboardText(text: string): ParsedRow[] {
   const lines = text.trim().split('\n')
   if (lines.length === 0) return []
@@ -31,21 +38,20 @@ function parseClipboardText(text: string): ParsedRow[] {
   const isTsv = lines[0].includes('\t')
   const sep = isTsv ? '\t' : ','
 
-  const headerLine = lines[0].toLowerCase()
-  const headers = headerLine.split(sep).map((h) => h.trim())
+  const firstFields = lines[0].split(sep).map((f) => f.trim())
+  const hasHeader = looksLikeHeader(firstFields)
 
   const colMap: Record<string, number> = {}
-  headers.forEach((h, i) => {
-    if (h.includes('hostname') || h.includes('호스트')) colMap.hostname = i
-    else if (h.includes('ip') || h.includes('address') || h.includes('주소')) colMap.ip = i
-    else if (h.includes('port') || h.includes('포트')) colMap.port = i
-    else if (h.includes('user') || h.includes('사용자')) colMap.user = i
-    else if (h.includes('pass') || h.includes('비밀번호')) colMap.password = i
-  })
-
-  const hasHeader = Object.keys(colMap).length >= 2
-  const dataStart = hasHeader ? 1 : 0
-  if (!hasHeader) {
+  if (hasHeader) {
+    firstFields.forEach((h, i) => {
+      const lh = h.toLowerCase()
+      if (lh.includes('hostname') || lh.includes('호스트') || lh.includes('host')) colMap.hostname = i
+      else if (lh.includes('ip') || lh.includes('address') || lh.includes('주소')) colMap.ip = i
+      else if (lh.includes('port') || lh.includes('포트')) colMap.port = i
+      else if (lh.includes('user') || lh.includes('사용자')) colMap.user = i
+      else if (lh.includes('pass') || lh.includes('비밀번호')) colMap.password = i
+    })
+  } else {
     colMap.hostname = 0
     colMap.ip = 1
     colMap.port = 2
@@ -53,6 +59,7 @@ function parseClipboardText(text: string): ParsedRow[] {
     colMap.password = 4
   }
 
+  const dataStart = hasHeader ? 1 : 0
   const rows: ParsedRow[] = []
   for (let i = dataStart; i < lines.length; i++) {
     const cols = lines[i].split(sep).map((c) => c.trim())

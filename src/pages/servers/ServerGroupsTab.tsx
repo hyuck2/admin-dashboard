@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
-import { Plus, Pencil, Trash2, Play, RefreshCw } from 'lucide-react'
+import { Plus, MoreHorizontal, RefreshCw } from 'lucide-react'
 import { serverService } from '../../services/serverService'
 import type { ServerGroup } from '../../types/server'
 import Button from '../../components/ui/Button'
 import Spinner from '../../components/ui/Spinner'
+import Dropdown from '../../components/ui/Dropdown'
 import ServerGroupModal from './ServerGroupModal'
 import GroupExecuteModal from './GroupExecuteModal'
 
@@ -81,21 +82,20 @@ export default function ServerGroupsTab() {
                 <td className="px-3 py-2 text-text-secondary">{g.serverCount}</td>
                 <td className="px-3 py-2 text-text-secondary">{g.createdAt ? new Date(g.createdAt).toLocaleDateString() : '-'}</td>
                 <td className="px-3 py-2 text-right">
-                  <div className="flex items-center justify-end gap-1">
-                    <button
-                      onClick={() => g.serverCount > 0 ? setExecuteGroup(g) : alert('그룹에 서버가 없습니다.')}
-                      className={`p-1 rounded hover:bg-bg-active ${g.serverCount > 0 ? 'text-text-tertiary' : 'text-text-tertiary/30 cursor-not-allowed'}`}
-                      title={g.serverCount > 0 ? '명령 실행' : '서버가 없습니다'}
-                    >
-                      <Play size={13} />
-                    </button>
-                    <button onClick={() => setEditGroup(g)} className="p-1 rounded hover:bg-bg-active text-text-tertiary" title="편집">
-                      <Pencil size={13} />
-                    </button>
-                    <button onClick={() => handleDelete(g.id)} className="p-1 rounded hover:bg-bg-active text-danger" title="삭제">
-                      <Trash2 size={13} />
-                    </button>
-                  </div>
+                  <Dropdown
+                    trigger={
+                      <button className="p-1 rounded hover:bg-bg-active text-text-tertiary">
+                        <MoreHorizontal size={14} />
+                      </button>
+                    }
+                    items={[
+                      ...(g.serverCount > 0
+                        ? [{ label: '명령 실행', onClick: () => setExecuteGroup(g) }]
+                        : []),
+                      { label: '편집', onClick: () => setEditGroup(g) },
+                      { label: '삭제', onClick: () => handleDelete(g.id), danger: true },
+                    ]}
+                  />
                 </td>
               </tr>
             ))}
