@@ -465,9 +465,18 @@ audit_logs
 - MySQL 배포 (hostPath + 노드 고정) 및 스키마 구성
 - admin-dashboard를 banana-deploy에 추가하여 K8s 배포
 
-### Phase 2: K8s 관리
+### Phase 2: K8s 관리 (구현 완료 — backend v0.1.7 / frontend v0.2.5)
 - 메뉴3: K8s 클러스터 관리 (k8sdashboard 기능 통합)
-- 감사 로그 확장 (메뉴3 작업 기록)
+- 클러스터 목록/상태 개요, 노드 목록, 네임스페이스 목록
+- 노드 목록: CPU cores/메모리 총량 표시, IP 컬럼, 컬럼 정렬, 검색
+- Deployments 탭: 클러스터 전체 Deployment 목록 (이름+네임스페이스 검색)
+- 네임스페이스 클릭 → Deployments 탭 이동 (해당 네임스페이스 자동 검색)
+- Deployment 액션: Scale, Restart, Logs, Edit (YAML), Exec (파드 쉘)
+- Deployment `updatedAt` 컬럼 (상대시간 표시)
+- Edit: YAML GET/PUT 엔드포인트 + 모달 에디터
+- Exec: WebSocket `/k8s/ws/exec` + xterm.js 터미널
+- nginx WebSocket 프록시: `/api/ws/` → backend `/k8s/ws/`
+- 감사 로그 확장 (메뉴3 작업 기록: scale, restart, edit, exec)
 
 ### Phase 3: 인프라 관리
 - 메뉴4: 서버 관리 (등록, Prometheus 모니터링, 웹 SSH)
