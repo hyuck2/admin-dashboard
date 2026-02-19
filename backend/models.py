@@ -1,7 +1,7 @@
 from datetime import datetime
 
 from sqlalchemy import (
-    Column, Integer, String, Boolean, Enum, DateTime, JSON, ForeignKey, Table
+    Column, Integer, String, Boolean, Enum, DateTime, JSON, Text, ForeignKey, Table
 )
 from sqlalchemy.orm import relationship
 
@@ -86,3 +86,95 @@ class AuditLog(Base):
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
 
     user = relationship("User", back_populates="audit_logs")
+
+
+# ---------------------------------------------------------------------------
+# Phase 3: Server Management
+# ---------------------------------------------------------------------------
+
+class ServerGroup(Base):
+    __tablename__ = "server_groups"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String(100), unique=True, nullable=False)
+    description = Column(String(500), nullable=False, default="")
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    servers = relationship("Server", back_populates="group")
+
+
+class Server(Base):
+    __tablename__ = "servers"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    hostname = Column(String(200), nullable=False)
+    ip_address = Column(String(45), nullable=False)
+    ssh_port = Column(Integer, nullable=False, default=22)
+    ssh_username = Column(String(100), nullable=False, default="root")
+    ssh_password_enc = Column(String(500), nullable=False, default="")
+    os_info = Column(String(200), nullable=False, default="")
+    description = Column(String(500), nullable=False, default="")
+    group_id = Column(Integer, ForeignKey("server_groups.id", ondelete="SET NULL"), nullable=True)
+    status = Column(Enum("unknown", "online", "offline"), nullable=False, default="unknown")
+    last_checked_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    group = relationship("ServerGroup", back_populates="servers")
+
+
+class MetricSource(Base):
+    __tablename__ = "metric_sources"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String(100), unique=True, nullable=False)
+    url = Column(String(500), nullable=False)
+    description = Column(String(500), nullable=False, default="")
+    is_active = Column(Boolean, nullable=False, default=True)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class AnsiblePlaybook(Base):
+    __tablename__ = "ansible_playbooks"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String(200), unique=True, nullable=False)
+    description = Column(String(500), nullable=False, default="")
+    content = Column(Text, nullable=False)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    executions = relationship("AnsibleExecution", back_populates="playbook")
+
+
+class AnsibleInventory(Base):
+    __tablename__ = "ansible_inventories"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String(200), nullable=False)
+    group_id = Column(Integer, ForeignKey("server_groups.id", ondelete="SET NULL"), nullable=True)
+    content = Column(Text, nullable=False)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    group = relationship("ServerGroup")
+
+
+class AnsibleExecution(Base):
+    __tablename__ = "ansible_executions"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    playbook_id = Column(Integer, ForeignKey("ansible_playbooks.id", ondelete="CASCADE"), nullable=False)
+    inventory_id = Column(Integer, ForeignKey("ansible_inventories.id", ondelete="SET NULL"), nullable=True)
+    target_type = Column(Enum("group", "servers"), nullable=False)
+    target_ids = Column(JSON, nullable=False)
+    status = Column(Enum("running", "success", "failed", "cancelled"), nullable=False, default="running")
+    started_by = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    log = Column(Text, nullable=True)
+    started_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    finished_at = Column(DateTime, nullable=True)
+
+    playbook = relationship("AnsiblePlaybook", back_populates="executions")
+    user = relationship("User")

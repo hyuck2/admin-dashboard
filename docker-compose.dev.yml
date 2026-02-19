@@ -1,0 +1,47 @@
+services:
+  ssh-server-1:
+    image: lscr.io/linuxserver/openssh-server:latest
+    environment:
+      - USER_NAME=testuser
+      - USER_PASSWORD=testpass
+      - PASSWORD_ACCESS=true
+    ports:
+      - "2221:2222"
+    hostname: dev-server-1
+
+  ssh-server-2:
+    image: lscr.io/linuxserver/openssh-server:latest
+    environment:
+      - USER_NAME=testuser
+      - USER_PASSWORD=testpass
+      - PASSWORD_ACCESS=true
+    ports:
+      - "2222:2222"
+    hostname: dev-server-2
+
+  ssh-server-3:
+    image: lscr.io/linuxserver/openssh-server:latest
+    environment:
+      - USER_NAME=testuser
+      - USER_PASSWORD=testpass
+      - PASSWORD_ACCESS=true
+    ports:
+      - "2223:2222"
+    hostname: dev-server-3
+
+  node-exporter-1:
+    image: prom/node-exporter:latest
+    ports:
+      - "9101:9100"
+
+  node-exporter-2:
+    image: prom/node-exporter:latest
+    ports:
+      - "9102:9100"
+
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./dev/prometheus.yml:/etc/prometheus/prometheus.yml

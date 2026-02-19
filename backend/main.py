@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from routers import auth, apps, users, audit, k8s
+from routers import auth, apps, users, audit, k8s, servers, metrics, ansible
 
 app = FastAPI(title="Admin Dashboard API")
 
@@ -18,6 +18,9 @@ app.include_router(apps.router)
 app.include_router(users.router)
 app.include_router(audit.router)
 app.include_router(k8s.router)
+app.include_router(servers.router)
+app.include_router(metrics.router)
+app.include_router(ansible.router)
 
 
 @app.get("/")

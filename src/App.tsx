@@ -13,6 +13,9 @@ import AuditLogPage from './pages/audit/AuditLogPage'
 import K8sPage from './pages/k8s/K8sPage'
 import ClusterDetailPage from './pages/k8s/ClusterDetailPage'
 import DeploymentDetailPage from './pages/k8s/DeploymentDetailPage'
+import ServerManagementPage from './pages/servers/ServerManagementPage'
+import MetricSourceDetailPage from './pages/servers/MetricSourceDetailPage'
+import AnsibleExecutionDetailPage from './pages/servers/AnsibleExecutionDetailPage'
 import ToastContainer from './components/ui/Toast'
 
 function NamespaceRedirect() {
@@ -41,6 +44,9 @@ function AppRoutes() {
         <Route path="/k8s/:context" element={<ClusterDetailPage />} />
         <Route path="/k8s/:context/:namespace" element={<NamespaceRedirect />} />
         <Route path="/k8s/:context/:namespace/:name" element={<DeploymentDetailPage />} />
+        <Route path="/servers" element={<ServerManagementPage />} />
+        <Route path="/servers/prometheus/:id" element={<MetricSourceDetailPage />} />
+        <Route path="/servers/ansible/executions/:id" element={<AnsibleExecutionDetailPage />} />
         <Route path="/audit" element={<AuditLogPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />

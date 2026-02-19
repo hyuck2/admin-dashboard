@@ -10,6 +10,7 @@ DATABASE_URL = os.getenv("DATABASE_URL", "mysql+pymysql://admin:admin@localhost:
 JWT_SECRET = os.getenv("JWT_SECRET", "banana-admin-secret")
 JWT_EXPIRE_HOURS = int(os.getenv("JWT_EXPIRE_HOURS", "24"))
 KUBECONFIG_PATH = os.getenv("KUBECONFIG_PATH", os.getenv("KUBECONFIG", os.path.expanduser("~/.kube/config")))
+FERNET_KEY = os.getenv("FERNET_KEY", "")
 
 
 def inject_token(url: str) -> str:

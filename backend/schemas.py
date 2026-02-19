@@ -254,3 +254,193 @@ class PodInfoResponse(BaseModel):
     name: str
     status: str
     containers: list[ContainerInfo]
+
+
+# --- Server Management ---
+class ServerGroupResponse(BaseModel):
+    id: int
+    name: str
+    description: str
+    serverCount: int = 0
+    createdAt: str
+    updatedAt: str
+
+
+class CreateServerGroupRequest(BaseModel):
+    name: str
+    description: str = ""
+
+
+class UpdateServerGroupRequest(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+
+
+class ServerResponse(BaseModel):
+    id: int
+    hostname: str
+    ipAddress: str
+    sshPort: int
+    sshUsername: str
+    osInfo: str
+    description: str
+    groupId: Optional[int] = None
+    groupName: Optional[str] = None
+    status: str
+    lastCheckedAt: Optional[str] = None
+    createdAt: str
+    updatedAt: str
+
+
+class CreateServerRequest(BaseModel):
+    hostname: str
+    ipAddress: str
+    sshPort: int = 22
+    sshUsername: str = "root"
+    sshPassword: str = ""
+    osInfo: str = ""
+    description: str = ""
+    groupId: Optional[int] = None
+
+
+class UpdateServerRequest(BaseModel):
+    hostname: Optional[str] = None
+    ipAddress: Optional[str] = None
+    sshPort: Optional[int] = None
+    sshUsername: Optional[str] = None
+    sshPassword: Optional[str] = None
+    osInfo: Optional[str] = None
+    description: Optional[str] = None
+    groupId: Optional[int] = None
+
+
+class BulkCreateServerRequest(BaseModel):
+    servers: list[CreateServerRequest]
+
+
+class SshTestResult(BaseModel):
+    serverId: int
+    hostname: str
+    ipAddress: str
+    success: bool
+    message: str
+
+
+class SshTestBulkRequest(BaseModel):
+    serverIds: list[int]
+
+
+class GroupExecuteRequest(BaseModel):
+    command: str
+
+
+class GroupExecuteResult(BaseModel):
+    serverId: int
+    hostname: str
+    ipAddress: str
+    exitCode: int
+    stdout: str
+    stderr: str
+
+
+# --- Metric Sources ---
+class MetricSourceResponse(BaseModel):
+    id: int
+    name: str
+    url: str
+    description: str
+    isActive: bool
+    createdAt: str
+    updatedAt: str
+
+
+class CreateMetricSourceRequest(BaseModel):
+    name: str
+    url: str
+    description: str = ""
+    isActive: bool = True
+
+
+class UpdateMetricSourceRequest(BaseModel):
+    name: Optional[str] = None
+    url: Optional[str] = None
+    description: Optional[str] = None
+    isActive: Optional[bool] = None
+
+
+class MetricTargetResponse(BaseModel):
+    instance: str
+    job: str
+    health: str
+    matchedServerId: Optional[int] = None
+    matchedHostname: Optional[str] = None
+
+
+class ServerMetricsResponse(BaseModel):
+    cpu: list[list] = []
+    memory: list[list] = []
+    disk: list[list] = []
+
+
+# --- Ansible ---
+class PlaybookResponse(BaseModel):
+    id: int
+    name: str
+    description: str
+    content: str
+    createdAt: str
+    updatedAt: str
+
+
+class CreatePlaybookRequest(BaseModel):
+    name: str
+    description: str = ""
+    content: str
+
+
+class UpdatePlaybookRequest(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    content: Optional[str] = None
+
+
+class InventoryResponse(BaseModel):
+    id: int
+    name: str
+    groupId: Optional[int] = None
+    groupName: Optional[str] = None
+    content: str
+    createdAt: str
+    updatedAt: str
+
+
+class CreateInventoryRequest(BaseModel):
+    name: str
+    groupId: Optional[int] = None
+    content: str
+
+
+class UpdateInventoryRequest(BaseModel):
+    name: Optional[str] = None
+    groupId: Optional[int] = None
+    content: Optional[str] = None
+
+
+class ExecutePlaybookRequest(BaseModel):
+    inventoryId: int
+    extraVars: Optional[str] = None
+
+
+class AnsibleExecutionResponse(BaseModel):
+    id: int
+    playbookId: int
+    playbookName: str
+    inventoryId: Optional[int] = None
+    targetType: str
+    targetIds: list
+    status: str
+    startedBy: int
+    startedByName: str = ""
+    log: Optional[str] = None
+    startedAt: str
+    finishedAt: Optional[str] = None
