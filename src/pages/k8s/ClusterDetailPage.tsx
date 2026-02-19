@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import { useParams, Link, useSearchParams } from 'react-router-dom'
 import { ChevronRight } from 'lucide-react'
 import Tabs from '../../components/ui/Tabs'
@@ -9,18 +8,17 @@ import AllDeploymentList from './AllDeploymentList'
 export default function ClusterDetailPage() {
   const { context } = useParams<{ context: string }>()
   const [searchParams, setSearchParams] = useSearchParams()
-  const tabParam = searchParams.get('tab')
+  const activeTab = searchParams.get('tab') || 'nodes'
   const nsParam = searchParams.get('ns') || ''
-  const [activeTab, setActiveTab] = useState(tabParam || 'nodes')
 
   if (!context) return null
 
   const handleTabChange = (tab: string) => {
-    setActiveTab(tab)
-    if (tab !== 'deployments') {
-      searchParams.delete('ns')
+    if (tab === 'nodes') {
+      setSearchParams({})
+    } else {
+      setSearchParams({ tab })
     }
-    setSearchParams(tab === 'nodes' ? {} : { tab, ...(tab === 'deployments' && nsParam ? { ns: nsParam } : {}) })
   }
 
   const tabs = [
