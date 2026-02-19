@@ -82,7 +82,11 @@ export default function ServerGroupsTab() {
                 <td className="px-3 py-2 text-text-secondary">{g.createdAt ? new Date(g.createdAt).toLocaleDateString() : '-'}</td>
                 <td className="px-3 py-2 text-right">
                   <div className="flex items-center justify-end gap-1">
-                    <button onClick={() => setExecuteGroup(g)} className="p-1 rounded hover:bg-bg-active text-text-tertiary" title="명령 실행">
+                    <button
+                      onClick={() => g.serverCount > 0 ? setExecuteGroup(g) : alert('그룹에 서버가 없습니다.')}
+                      className={`p-1 rounded hover:bg-bg-active ${g.serverCount > 0 ? 'text-text-tertiary' : 'text-text-tertiary/30 cursor-not-allowed'}`}
+                      title={g.serverCount > 0 ? '명령 실행' : '서버가 없습니다'}
+                    >
                       <Play size={13} />
                     </button>
                     <button onClick={() => setEditGroup(g)} className="p-1 rounded hover:bg-bg-active text-text-tertiary" title="편집">

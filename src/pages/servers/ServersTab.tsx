@@ -63,12 +63,6 @@ export default function ServersTab() {
     fetchData()
   }
 
-  const handleBulk = async (servers: CreateServerRequest[]) => {
-    await serverService.bulkCreateServers(servers)
-    setBulkOpen(false)
-    fetchData()
-  }
-
   const handleTestSsh = async (id: number) => {
     setTestingIds((prev) => new Set(prev).add(id))
     try {
@@ -217,7 +211,7 @@ export default function ServersTab() {
       <BulkServerModal
         open={bulkOpen}
         onClose={() => setBulkOpen(false)}
-        onSubmit={handleBulk}
+        onComplete={fetchData}
         groups={groups}
       />
       {sshServer && (
