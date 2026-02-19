@@ -178,10 +178,18 @@ def list_nodes(context: str, current_user: User = Depends(get_current_user)):
         for t in (n.spec.taints or []):
             taints.append(NodeTaint(key=t.key, value=t.value, effect=t.effect))
 
+        # IP address
+        ip = None
+        for addr in (n.status.addresses or []):
+            if addr.type == "InternalIP":
+                ip = addr.address
+                break
+
         result.append(NodeInfoResponse(
             name=n.metadata.name,
             status=status,
             roles=roles,
+            ip=ip,
             cpu=ResourceUsage(
                 total=total_cpu, used=used["cpu"],
                 percentage=round(used["cpu"] / total_cpu * 100, 1) if total_cpu else 0,
@@ -256,6 +264,49 @@ def list_namespaces(context: str, current_user: User = Depends(get_current_user)
 # ---------------------------------------------------------------------------
 # Deployments
 # ---------------------------------------------------------------------------
+
+@router.get("/clusters/{context}/deployments", response_model=list[DeploymentInfoResponse])
+def list_all_deployments(
+    context: str,
+    current_user: User = Depends(get_current_user),
+):
+    try:
+        apps = _k8s.apps_v1(context)
+        deploys = apps.list_deployment_for_all_namespaces().items
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+    result = []
+    for d in deploys:
+        replicas = d.spec.replicas or 0
+        ready = d.status.ready_replicas or 0
+        available = d.status.available_replicas or 0
+
+        if ready == replicas and replicas > 0:
+            status = "Running"
+        elif ready == 0 and replicas > 0:
+            status = "Pending"
+        else:
+            status = "Running"
+
+        image = ""
+        if d.spec.template.spec.containers:
+            image = d.spec.template.spec.containers[0].image or ""
+
+        result.append(DeploymentInfoResponse(
+            name=d.metadata.name,
+            namespace=d.metadata.namespace,
+            replicas=replicas,
+            readyReplicas=ready,
+            availableReplicas=available,
+            status=status,
+            image=image,
+            createdAt=d.metadata.creation_timestamp.isoformat() if d.metadata.creation_timestamp else None,
+            updatedAt=_get_updated_at(d),
+        ))
+
+    return result
+
 
 @router.get("/clusters/{context}/namespaces/{namespace}/deployments", response_model=list[DeploymentInfoResponse])
 def list_deployments(

@@ -186,6 +186,7 @@ class NodeInfoResponse(BaseModel):
     name: str
     status: str  # Ready / NotReady / Unknown
     roles: list[str]
+    ip: Optional[str] = None
     cpu: Optional[ResourceUsage] = None
     memory: Optional[ResourceUsage] = None
     taints: list[NodeTaint] = []

@@ -34,6 +34,7 @@ export interface NodeInfo {
   name: string
   status: string
   roles: string[]
+  ip: string | null
   cpu: ResourceUsage | null
   memory: ResourceUsage | null
   taints: NodeTaint[]

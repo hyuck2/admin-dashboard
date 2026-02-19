@@ -4,6 +4,7 @@ import { ChevronRight } from 'lucide-react'
 import Tabs from '../../components/ui/Tabs'
 import NodeList from './NodeList'
 import NamespaceList from './NamespaceList'
+import AllDeploymentList from './AllDeploymentList'
 
 export default function ClusterDetailPage() {
   const { context } = useParams<{ context: string }>()
@@ -14,6 +15,7 @@ export default function ClusterDetailPage() {
   const tabs = [
     { id: 'nodes', label: '노드' },
     { id: 'namespaces', label: '네임스페이스' },
+    { id: 'deployments', label: 'Deployments' },
   ]
 
   return (
@@ -31,6 +33,7 @@ export default function ClusterDetailPage() {
       <div className="mt-4">
         {activeTab === 'nodes' && <NodeList context={context} />}
         {activeTab === 'namespaces' && <NamespaceList context={context} />}
+        {activeTab === 'deployments' && <AllDeploymentList context={context} />}
       </div>
     </div>
   )

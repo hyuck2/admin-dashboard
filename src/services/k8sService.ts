@@ -22,6 +22,10 @@ export const k8sService = {
     return apiClient<NamespaceInfo[]>('GET', `/k8s/clusters/${context}/namespaces`)
   },
 
+  getAllDeployments(context: string) {
+    return apiClient<DeploymentInfo[]>('GET', `/k8s/clusters/${context}/deployments`)
+  },
+
   getDeployments(context: string, namespace: string) {
     return apiClient<DeploymentInfo[]>('GET', `/k8s/clusters/${context}/namespaces/${namespace}/deployments`)
   },

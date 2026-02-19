@@ -128,6 +128,11 @@ export default function NodeList({ context }: { context: string }) {
       ),
     },
     {
+      key: 'ip',
+      header: 'IP',
+      render: (n: NodeInfo) => <span className="text-xs text-text-secondary">{n.ip ?? '-'}</span>,
+    },
+    {
       key: 'status',
       header: headerButton('상태', 'status'),
       render: (n: NodeInfo) => (
