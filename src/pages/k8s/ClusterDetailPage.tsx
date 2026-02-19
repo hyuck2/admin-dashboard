@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useParams, Link, useSearchParams } from 'react-router-dom'
 import { ChevronRight } from 'lucide-react'
 import Tabs from '../../components/ui/Tabs'
 import NodeList from './NodeList'
@@ -8,9 +8,20 @@ import AllDeploymentList from './AllDeploymentList'
 
 export default function ClusterDetailPage() {
   const { context } = useParams<{ context: string }>()
-  const [activeTab, setActiveTab] = useState('nodes')
+  const [searchParams, setSearchParams] = useSearchParams()
+  const tabParam = searchParams.get('tab')
+  const nsParam = searchParams.get('ns') || ''
+  const [activeTab, setActiveTab] = useState(tabParam || 'nodes')
 
   if (!context) return null
+
+  const handleTabChange = (tab: string) => {
+    setActiveTab(tab)
+    if (tab !== 'deployments') {
+      searchParams.delete('ns')
+    }
+    setSearchParams(tab === 'nodes' ? {} : { tab, ...(tab === 'deployments' && nsParam ? { ns: nsParam } : {}) })
+  }
 
   const tabs = [
     { id: 'nodes', label: '노드' },
@@ -28,12 +39,12 @@ export default function ClusterDetailPage() {
 
       <h1 className="text-lg font-semibold text-text-primary mb-4">{context}</h1>
 
-      <Tabs tabs={tabs} activeTab={activeTab} onChange={setActiveTab} />
+      <Tabs tabs={tabs} activeTab={activeTab} onChange={handleTabChange} />
 
       <div className="mt-4">
         {activeTab === 'nodes' && <NodeList context={context} />}
         {activeTab === 'namespaces' && <NamespaceList context={context} />}
-        {activeTab === 'deployments' && <AllDeploymentList context={context} />}
+        {activeTab === 'deployments' && <AllDeploymentList context={context} initialSearch={nsParam} />}
       </div>
     </div>
   )

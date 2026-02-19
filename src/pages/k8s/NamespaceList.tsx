@@ -46,7 +46,7 @@ export default function NamespaceList({ context }: { context: string }) {
       header: '네임스페이스',
       render: (ns: NamespaceInfo) => (
         <Link
-          to={`/k8s/${context}/${ns.name}`}
+          to={`/k8s/${context}?tab=deployments&ns=${encodeURIComponent(ns.name)}`}
           className="font-medium text-accent hover:underline"
         >
           {ns.name}

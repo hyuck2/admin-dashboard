@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, useParams } from 'react-router-dom'
 import { ThemeProvider } from './contexts/ThemeContext'
 import { AuthProvider } from './contexts/AuthContext'
 import { SidebarProvider } from './contexts/SidebarContext'
@@ -12,9 +12,13 @@ import UserManagementPage from './pages/users/UserManagementPage'
 import AuditLogPage from './pages/audit/AuditLogPage'
 import K8sPage from './pages/k8s/K8sPage'
 import ClusterDetailPage from './pages/k8s/ClusterDetailPage'
-import DeploymentListPage from './pages/k8s/DeploymentListPage'
 import DeploymentDetailPage from './pages/k8s/DeploymentDetailPage'
 import ToastContainer from './components/ui/Toast'
+
+function NamespaceRedirect() {
+  const { context, namespace } = useParams()
+  return <Navigate to={`/k8s/${context}?tab=deployments&ns=${namespace}`} replace />
+}
 
 function AppRoutes() {
   return (
@@ -35,7 +39,7 @@ function AppRoutes() {
         <Route path="/users" element={<UserManagementPage />} />
         <Route path="/k8s" element={<K8sPage />} />
         <Route path="/k8s/:context" element={<ClusterDetailPage />} />
-        <Route path="/k8s/:context/:namespace" element={<DeploymentListPage />} />
+        <Route path="/k8s/:context/:namespace" element={<NamespaceRedirect />} />
         <Route path="/k8s/:context/:namespace/:name" element={<DeploymentDetailPage />} />
         <Route path="/audit" element={<AuditLogPage />} />
       </Route>
