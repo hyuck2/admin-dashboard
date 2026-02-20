@@ -43,6 +43,8 @@ services:
       - ./kubeconfig:/root/.kube/config:ro
     ports:
       - "8000:8000"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
   frontend:
     image: admin-dashboard-frontend:${FRONTEND_TAG:-v0.3.2}

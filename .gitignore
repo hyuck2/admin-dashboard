@@ -19,6 +19,10 @@ __pycache__/
 # K8s secrets (never commit)
 k8s/git-token-secret.yaml
 
+# Docker compose local files (never commit)
+deploy/.env
+deploy/kubeconfig
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
