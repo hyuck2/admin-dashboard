@@ -15,7 +15,7 @@ app.add_middleware(
 
 app.include_router(auth.router)
 app.include_router(apps.router)
-app.include_router(users.router)
+app.include_router(users.router, prefix="/users")
 app.include_router(audit.router)
 app.include_router(k8s.router)
 app.include_router(servers.router)
