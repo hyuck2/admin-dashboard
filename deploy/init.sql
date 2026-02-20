@@ -1,4 +1,6 @@
 -- Admin Dashboard Initial Schema
+SET NAMES utf8mb4;
+SET CHARACTER SET utf8mb4;
 USE admin_dashboard;
 
 CREATE TABLE IF NOT EXISTS users (
