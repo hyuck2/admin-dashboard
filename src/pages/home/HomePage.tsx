@@ -1,11 +1,12 @@
 import { useAuth } from '../../hooks/useAuth'
-import { AppWindow, Users, FileText, Server } from 'lucide-react'
+import { AppWindow, Users, FileText, Server, Monitor } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
 const quickLinks = [
   { icon: AppWindow, label: 'UI Application 관리', path: '/apps', description: '앱 상태 조회, 롤백, Replica 변경' },
   { icon: Users, label: '사용자 & 권한 관리', path: '/users', description: '사용자 및 그룹 권한 관리' },
   { icon: Server, label: 'K8s 클러스터 관리', path: '/k8s', description: '멀티 클러스터 노드/네임스페이스/배포 관리' },
+  { icon: Monitor, label: '서버 관리', path: '/servers', description: 'SSH 서버 관리, 그룹 명령 실행, Ansible 자동화' },
   { icon: FileText, label: '감사 로그', path: '/audit', description: '시스템 변경 이력 조회' },
 ]
 

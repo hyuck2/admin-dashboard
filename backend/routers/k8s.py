@@ -56,8 +56,14 @@ def _get_updated_at(deployment) -> str | None:
 
 @router.get("/clusters", response_model=ClusterListResponse)
 def list_clusters(current_user: User = Depends(get_current_user)):
-    _parser.load_config()
-    contexts = _parser.get_contexts()
+    try:
+        _parser.load_config()
+        contexts = _parser.get_contexts()
+    except Exception as e:
+        logger.warning("Failed to load kubeconfig: %s", str(e))
+        # Return empty list if kubeconfig is not accessible
+        return ClusterListResponse(clusters=[], total=0)
+
     clusters = []
 
     for ctx in contexts:

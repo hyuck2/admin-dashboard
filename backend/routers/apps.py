@@ -105,7 +105,13 @@ def get_apps(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    deploy_path = _sync_banana_deploy()
+    try:
+        deploy_path = _sync_banana_deploy()
+    except Exception as e:
+        logger.warning("Failed to sync deploy repo: %s", str(e))
+        # Return empty list if deploy repo is not accessible
+        return []
+
     apps = []
     discovered_apps = set()
 
@@ -159,7 +165,14 @@ def get_tags(
     appName: str = Query(..., description="App name"),
     current_user: User = Depends(get_current_user),
 ):
-    repo_path = _sync_app_repo(appName)
+    try:
+        repo_path = _sync_app_repo(appName)
+    except HTTPException:
+        # App not configured - this is expected in docker-compose without app repos
+        raise HTTPException(status_code=404, detail=f"App '{appName}' repository not configured. Set APP_GIT_URLS or DEPLOY_GIT_URL in environment.")
+    except Exception as e:
+        logger.warning("Failed to sync app repo: %s", str(e))
+        raise HTTPException(status_code=500, detail=f"Failed to sync repository: {str(e)}")
 
     result = _run([
         "git", "-C", repo_path,
@@ -192,7 +205,11 @@ def rollback(
     db: Session = Depends(get_db),
 ):
     require_permission(current_user, "app_deploy", req.appName, "write")
-    deploy_path = _sync_banana_deploy()
+    try:
+        deploy_path = _sync_banana_deploy()
+    except Exception as e:
+        logger.error("Failed to sync deploy repo: %s", str(e))
+        raise HTTPException(status_code=503, detail="Deploy repository not configured. Set DEPLOY_GIT_URL in environment.")
 
     # Validate app directory exists
     common_yaml = os.path.join(deploy_path, req.appName, "common.yaml")
