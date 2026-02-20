@@ -25,9 +25,14 @@ interface ParsedRow {
 }
 
 function looksLikeHeader(fields: string[]): boolean {
+  // If any field looks like data (IP, port number, etc), it's not a header
+  const hasIpLike = fields.some((f) => /^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(f))
+  const hasPortNumber = fields.some((f) => /^\d{1,5}$/.test(f) && Number(f) > 0 && Number(f) <= 65535)
+  if (hasIpLike || hasPortNumber) return false
+
   const lower = fields.map((f) => f.toLowerCase())
-  const headerKeywords = ['hostname', 'host', 'ip', 'address', 'port', 'user', 'pass', 'password', '호스트', '주소', '포트', '사용자', '비밀번호']
-  const matches = lower.filter((f) => headerKeywords.some((k) => f.includes(k)))
+  const headerKeywords = ['hostname', 'ip', 'address', 'port', 'user', 'password', '호스트', '주소', '포트', '사용자', '비밀번호']
+  const matches = lower.filter((f) => headerKeywords.some((k) => f === k || f.startsWith(k + '_') || f.endsWith('_' + k)))
   return matches.length >= 2
 }
 
