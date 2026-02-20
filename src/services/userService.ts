@@ -4,38 +4,38 @@ import type { Group, Permission, CreateUserRequest, UpdateUserRequest, CreateGro
 
 export const userService = {
   getUsers() {
-    return apiClient<User[]>('GET', '/users')
+    return apiClient<User[]>('GET', '/users/')
   },
 
   createUser(data: CreateUserRequest) {
-    return apiClient<User>('POST', '/users', { body: data })
+    return apiClient<User>('POST', '/users/', { body: data })
   },
 
   updateUser(id: number, data: UpdateUserRequest) {
-    return apiClient<User>('PUT', '/users', { body: data, pathParams: [String(id)] })
+    return apiClient<User>('PUT', '/users/', { body: data, pathParams: [String(id)] })
   },
 
   deleteUser(id: number) {
-    return apiClient<{ message: string }>('DELETE', '/users', { pathParams: [String(id)] })
+    return apiClient<{ message: string }>('DELETE', '/users/', { pathParams: [String(id)] })
   },
 
   getGroups() {
-    return apiClient<Group[]>('GET', '/groups')
+    return apiClient<Group[]>('GET', '/users/groups')
   },
 
   createGroup(data: CreateGroupRequest) {
-    return apiClient<Group>('POST', '/groups', { body: data })
+    return apiClient<Group>('POST', '/users/groups', { body: data })
   },
 
   updateGroup(id: number, data: UpdateGroupRequest) {
-    return apiClient<Group>('PUT', '/groups', { body: data, pathParams: [String(id)] })
+    return apiClient<Group>('PUT', '/users/groups', { body: data, pathParams: [String(id)] })
   },
 
   deleteGroup(id: number) {
-    return apiClient<{ message: string }>('DELETE', '/groups', { pathParams: [String(id)] })
+    return apiClient<{ message: string }>('DELETE', '/users/groups', { pathParams: [String(id)] })
   },
 
   getPermissions() {
-    return apiClient<Permission[]>('GET', '/permissions')
+    return apiClient<Permission[]>('GET', '/users/permissions')
   },
 }
