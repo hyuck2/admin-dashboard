@@ -267,10 +267,18 @@ def rollback(
         "git", "-C", deploy_path, "commit",
         "-m", f"rollback: {req.appName} {req.env} to {req.targetVersion}",
     ])
+
+    git_push_success = False
     if commit_result.returncode == 0:
-        push_result = _run(["git", "-C", deploy_path, "push", "origin", "master"])
-        if push_result.returncode != 0:
-            logger.warning("git push failed: %s", push_result.stderr)
+        from config import DEPLOY_GIT_BRANCH
+        push_result = _run(["git", "-C", deploy_path, "push", "origin", DEPLOY_GIT_BRANCH])
+        if push_result.returncode == 0:
+            git_push_success = True
+            logger.info("Git push successful for %s %s to %s", req.appName, req.env, req.targetVersion)
+        else:
+            logger.warning("git push failed (GIT_TOKEN may not be set): %s", push_result.stderr)
+    else:
+        logger.warning("git commit returned code %d: %s", commit_result.returncode, commit_result.stderr)
 
     # 4. Deploy via bash helm-deploy.sh
     result = _run(
@@ -301,7 +309,11 @@ def rollback(
     if not success:
         raise HTTPException(status_code=500, detail=f"Rollback failed: {result.stderr}")
 
-    return {"message": f"Rollback to {req.targetVersion} completed"}
+    message = f"Rollback to {req.targetVersion} completed (K8s deployed)"
+    if not git_push_success:
+        message += " ⚠️ Deploy repo not updated (GIT_TOKEN not configured)"
+
+    return {"message": message}
 
 
 @router.post("/replica", response_model=MessageResponse)
