@@ -33,8 +33,7 @@ services:
       JWT_SECRET: ${JWT_SECRET:-banana-admin-secret}
       FERNET_KEY: ${FERNET_KEY:-}
       GIT_TOKEN: ${GIT_TOKEN:-}
-      BANANA_DEPLOY_GIT_URL: ${BANANA_DEPLOY_GIT_URL:-}
-      APP_GIT_URLS: ${APP_GIT_URLS:-}
+      DEPLOY_GIT_URL: ${DEPLOY_GIT_URL:-}
       KUBECONFIG: /root/.kube/config
     volumes:
       - ./kubeconfig:/root/.kube/config:ro

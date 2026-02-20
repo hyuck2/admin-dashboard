@@ -2,9 +2,10 @@ import os
 from urllib.parse import urlparse, urlunparse
 
 GIT_TOKEN = os.getenv("GIT_TOKEN", "")
-BANANA_DEPLOY_GIT_URL = os.getenv("BANANA_DEPLOY_GIT_URL", "https://github.com/hyuck2/banana-deploy.git")
+DEPLOY_GIT_URL = os.getenv("DEPLOY_GIT_URL", "https://github.com/hyuck2/banana-deploy.git")
+BANANA_DEPLOY_GIT_URL = DEPLOY_GIT_URL  # Legacy alias
 BANANA_DEPLOY_LOCAL_PATH = os.getenv("BANANA_DEPLOY_LOCAL_PATH", "/tmp/banana-deploy")
-APP_GIT_URLS = os.getenv("APP_GIT_URLS", "app1=https://github.com/hyuck2/app1.git,app2=https://github.com/hyuck2/app2.git")
+APP_GIT_URLS = os.getenv("APP_GIT_URLS", "")  # Deprecated - apps are in deploy repo
 APP_REPOS_LOCAL_PATH = os.getenv("APP_REPOS_LOCAL_PATH", "/tmp/app-repos")
 DATABASE_URL = os.getenv("DATABASE_URL", "mysql+pymysql://admin:admin@localhost:3306/admin_dashboard")
 JWT_SECRET = os.getenv("JWT_SECRET", "banana-admin-secret")
