@@ -41,13 +41,13 @@ def _audit(db: Session, user: User, action: str, target_type: str, target_name: 
 
 
 # --- Users ---
-@router.get("/users", response_model=list[UserResponse])
+@router.get("", response_model=list[UserResponse])
 def get_users(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     users = db.query(User).all()
     return [user_to_response(u) for u in users]
 
 
-@router.post("/users", response_model=UserResponse)
+@router.post("", response_model=UserResponse)
 def create_user(
     req: CreateUserRequest,
     request: Request,
@@ -80,7 +80,7 @@ def create_user(
     return user_to_response(user)
 
 
-@router.put("/users/{user_id}", response_model=UserResponse)
+@router.put("/{user_id}", response_model=UserResponse)
 def update_user(
     user_id: int,
     req: UpdateUserRequest,
@@ -117,7 +117,7 @@ def update_user(
     return user_to_response(user)
 
 
-@router.delete("/users/{user_id}", response_model=MessageResponse)
+@router.delete("/{user_id}", response_model=MessageResponse)
 def delete_user(
     user_id: int,
     request: Request,

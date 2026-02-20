@@ -163,36 +163,61 @@ def get_apps(
 @router.get("/tags", response_model=list[AppTagResponse])
 def get_tags(
     appName: str = Query(..., description="App name"),
+    env: str = Query(..., description="Environment (prod/stage)"),
     current_user: User = Depends(get_current_user),
 ):
+    # Get tags from deploy repo git history instead of app repo
     try:
-        repo_path = _sync_app_repo(appName)
-    except HTTPException:
-        # App not configured - this is expected in docker-compose without app repos
-        raise HTTPException(status_code=404, detail=f"App '{appName}' repository not configured. Set APP_GIT_URLS or DEPLOY_GIT_URL in environment.")
+        deploy_path = _sync_banana_deploy()
     except Exception as e:
-        logger.warning("Failed to sync app repo: %s", str(e))
-        raise HTTPException(status_code=500, detail=f"Failed to sync repository: {str(e)}")
+        logger.warning("Failed to sync deploy repo: %s", str(e))
+        raise HTTPException(status_code=503, detail="Deploy repository not configured.")
 
+    env_yaml_path = f"{appName}/image/{env}.yaml"
+
+    # Get git log for the specific env yaml file to find previous versions
     result = _run([
-        "git", "-C", repo_path,
-        "for-each-ref",
-        "--format=%(refname:short) %(creatordate:iso8601)",
-        "--sort=-version:refname",
-        "refs/tags/"
+        "git", "-C", deploy_path, "log",
+        "--format=%H %aI",
+        "--all",
+        "-100",  # Last 100 commits
+        "--", env_yaml_path
     ])
 
     if result.returncode != 0:
-        raise HTTPException(status_code=500, detail=f"git error: {result.stderr}")
+        logger.warning("git log failed: %s", result.stderr)
+        return []
 
-    tags = []
+    # Extract tags from each commit
+    tags_dict = {}
     for line in result.stdout.strip().split("\n"):
         if not line.strip():
             continue
         parts = line.strip().split(" ", 1)
-        tag = parts[0]
-        created_at = parts[1].strip() if len(parts) > 1 else ""
-        tags.append({"tag": tag, "createdAt": created_at})
+        if len(parts) < 2:
+            continue
+        commit_hash = parts[0]
+        commit_date = parts[1]
+
+        # Get the tag value from this commit
+        show_result = _run([
+            "git", "-C", deploy_path, "show",
+            f"{commit_hash}:{env_yaml_path}"
+        ])
+
+        if show_result.returncode == 0:
+            try:
+                data = yaml.safe_load(show_result.stdout)
+                if data and "image" in data and "tag" in data["image"]:
+                    tag = data["image"]["tag"]
+                    if tag not in tags_dict:
+                        tags_dict[tag] = commit_date
+            except Exception:
+                pass
+
+    # Convert to list and sort by version
+    tags = [{"tag": tag, "createdAt": date} for tag, date in tags_dict.items()]
+    tags.sort(key=lambda x: x["tag"], reverse=True)
 
     return tags
 

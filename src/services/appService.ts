@@ -6,8 +6,8 @@ export const appService = {
     return apiClient<AppStatus[]>('GET', '/apps')
   },
 
-  getTags(appName: string) {
-    return apiClient<AppTag[]>('GET', '/apps/tags', { query: { appName } })
+  getTags(appName: string, env: string) {
+    return apiClient<AppTag[]>('GET', '/apps/tags', { query: { appName, env } })
   },
 
   rollback(data: RollbackRequest) {

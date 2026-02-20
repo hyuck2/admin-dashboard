@@ -31,11 +31,11 @@ export default function RollbackModal({ app, onClose, onComplete }: RollbackModa
   }, [executing])
 
   useEffect(() => {
-    appService.getTags(app.appName).then((data) => {
+    appService.getTags(app.appName, app.env).then((data) => {
       setTags(data)
       setLoading(false)
     })
-  }, [app.appName])
+  }, [app.appName, app.env])
 
   const filteredTags = useMemo(() => {
     if (!filterVersion) return tags
