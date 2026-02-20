@@ -3,6 +3,7 @@ from urllib.parse import urlparse, urlunparse
 
 GIT_TOKEN = os.getenv("GIT_TOKEN", "")
 DEPLOY_GIT_URL = os.getenv("DEPLOY_GIT_URL", "https://github.com/hyuck2/banana-deploy.git")
+DEPLOY_GIT_BRANCH = os.getenv("DEPLOY_GIT_BRANCH", "master")
 BANANA_DEPLOY_GIT_URL = DEPLOY_GIT_URL  # Legacy alias
 BANANA_DEPLOY_LOCAL_PATH = os.getenv("BANANA_DEPLOY_LOCAL_PATH", "/tmp/banana-deploy")
 APP_GIT_URLS = os.getenv("APP_GIT_URLS", "")  # Deprecated - apps are in deploy repo

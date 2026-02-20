@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session
 
 from config import (
-    BANANA_DEPLOY_GIT_URL, BANANA_DEPLOY_LOCAL_PATH,
+    BANANA_DEPLOY_GIT_URL, BANANA_DEPLOY_LOCAL_PATH, DEPLOY_GIT_BRANCH,
     APP_REPOS_LOCAL_PATH, get_app_git_urls, inject_token,
 )
 from database import get_db
@@ -31,16 +31,16 @@ def _run(cmd: list[str], cwd: str = None) -> subprocess.CompletedProcess:
 # Git repo sync helpers
 # ---------------------------------------------------------------------------
 
-def _sync_repo(git_url: str, local_path: str) -> str:
-    """Clone if not exists, otherwise fetch + reset to origin/master. Returns local_path."""
+def _sync_repo(git_url: str, local_path: str, branch: str = "master") -> str:
+    """Clone if not exists, otherwise fetch + reset to origin/{branch}. Returns local_path."""
     if os.path.isdir(os.path.join(local_path, ".git")):
         result = _run(["git", "-C", local_path, "fetch", "--all", "--tags"])
         if result.returncode != 0:
             logger.warning("git fetch failed for %s: %s", local_path, result.stderr)
-        _run(["git", "-C", local_path, "reset", "--hard", "origin/master"])
+        _run(["git", "-C", local_path, "reset", "--hard", f"origin/{branch}"])
     else:
         os.makedirs(os.path.dirname(local_path), exist_ok=True)
-        result = _run(["git", "clone", git_url, local_path])
+        result = _run(["git", "clone", "-b", branch, git_url, local_path])
         if result.returncode != 0:
             raise HTTPException(status_code=500, detail=f"git clone failed: {result.stderr}")
     return local_path
@@ -48,7 +48,7 @@ def _sync_repo(git_url: str, local_path: str) -> str:
 
 def _sync_banana_deploy() -> str:
     """Sync banana-deploy repo and return local path."""
-    return _sync_repo(inject_token(BANANA_DEPLOY_GIT_URL), BANANA_DEPLOY_LOCAL_PATH)
+    return _sync_repo(inject_token(BANANA_DEPLOY_GIT_URL), BANANA_DEPLOY_LOCAL_PATH, DEPLOY_GIT_BRANCH)
 
 
 def _sync_app_repo(app_name: str) -> str:

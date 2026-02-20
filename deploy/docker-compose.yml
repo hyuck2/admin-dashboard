@@ -34,6 +34,7 @@ services:
       FERNET_KEY: ${FERNET_KEY:-}
       GIT_TOKEN: ${GIT_TOKEN:-}
       DEPLOY_GIT_URL: ${DEPLOY_GIT_URL:-}
+      DEPLOY_GIT_BRANCH: ${DEPLOY_GIT_BRANCH:-master}
       KUBECONFIG: /root/.kube/config
     volumes:
       - ./kubeconfig:/root/.kube/config:ro

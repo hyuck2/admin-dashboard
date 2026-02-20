@@ -166,6 +166,7 @@ FERNET_KEY=
 # Git 연동 (앱 배포 기능 사용 시, 선택):
 GIT_TOKEN=ghp_xxxxxxxxxxxx              # GitHub/GitLab PAT
 DEPLOY_GIT_URL=https://gitlab.internal/your-org/deploy.git
+DEPLOY_GIT_BRANCH=master                # Deploy 저장소 브랜치
 ```
 
 **중요:**
