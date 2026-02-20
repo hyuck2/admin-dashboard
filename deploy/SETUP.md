@@ -81,27 +81,29 @@ docker save ${REGISTRY}/node:22-alpine -o node.tar
 ### 2-3. 전송할 파일
 
 ```
-banana-org/                           # 전체 소스코드
-├── admin-dashboard/
-│   ├── backend/                      # FastAPI 백엔드
-│   ├── src/                          # React 프론트엔드
-│   ├── deploy/                       # 배포 스크립트
-│   │   ├── setup.sh                  # ← 실행 스크립트
-│   │   ├── SETUP.md                  # ← 이 문서
-│   │   ├── docker-compose.yml
-│   │   ├── nginx.conf
-│   │   ├── init.sql
-│   │   └── .env.example
-│   ├── package.json                  # npm dependencies
+admin-dashboard/                      # admin-dashboard 저장소만 필요
+├── backend/                          # FastAPI 백엔드
+│   ├── Dockerfile                    # ← 백엔드 이미지 빌드용
+│   ├── main.py
+│   ├── requirements.txt
 │   └── ...
-├── banana-deploy/                    # Dockerfile들
+├── src/                              # React 프론트엔드
+├── Dockerfile                        # ← 프론트엔드 이미지 빌드용
+├── deploy/                           # 배포 스크립트
+│   ├── setup.sh                      # ← 실행 스크립트
+│   ├── SETUP.md                      # ← 이 문서
+│   ├── docker-compose.yml
+│   ├── nginx.conf
+│   ├── init.sql
+│   └── .env.example
+├── package.json                      # npm dependencies
 └── ...
 ```
 
 **전송 방법:**
 ```bash
 # 서버로 전송 (SCP)
-scp -r banana-org/ user@서버IP:/opt/
+scp -r admin-dashboard/ user@서버IP:/opt/
 
 # 또는 USB로 복사
 ```
@@ -113,30 +115,30 @@ scp -r banana-org/ user@서버IP:/opt/
 ### 3-1. Dockerfile 수정 (프라이빗 레지스트리 사용)
 
 ```bash
-cd /opt/banana-org
+cd /opt/admin-dashboard
 
 # 프라이빗 레지스트리 주소
 REGISTRY="192.168.1.100:5000"
 
 # 백엔드 Dockerfile 수정
 sed -i "s|FROM python:3.11-slim|FROM ${REGISTRY}/python:3.11-slim|" \
-    banana-deploy/admin-dashboard-backend/Dockerfile
+    backend/Dockerfile
 
 # 프론트엔드 Dockerfile 수정
 sed -i "s|FROM node:22-alpine|FROM ${REGISTRY}/node:22-alpine|" \
-    banana-deploy/admin-dashboard-frontend/Dockerfile
+    Dockerfile
 sed -i "s|FROM nginx:alpine|FROM ${REGISTRY}/nginx:alpine|" \
-    banana-deploy/admin-dashboard-frontend/Dockerfile
+    Dockerfile
 
 # docker-compose.yml MySQL 이미지 수정
 sed -i "s|image: mysql:8.0|image: ${REGISTRY}/mysql:8.0|" \
-    admin-dashboard/deploy/docker-compose.yml
+    deploy/docker-compose.yml
 ```
 
 ### 3-2. 초기 설정
 
 ```bash
-cd /opt/banana-org/admin-dashboard/deploy
+cd /opt/admin-dashboard/deploy
 
 bash setup.sh init
 ```
@@ -180,7 +182,7 @@ k3s 클러스터의 kubeconfig를 가져와서 병합합니다.
 #### 단일 클러스터
 
 ```bash
-cd /opt/banana-org/admin-dashboard/deploy
+cd /opt/admin-dashboard/deploy
 
 # k3s 마스터 노드에서 복사
 cp /etc/rancher/k3s/k3s.yaml ./kubeconfig
@@ -221,15 +223,15 @@ kubectl --kubeconfig=./kubeconfig config get-contexts
 ## 4. 이미지 빌드
 
 ```bash
-cd /opt/banana-org/admin-dashboard/deploy
+cd /opt/admin-dashboard/deploy
 
 bash setup.sh build
 ```
 
 **빌드 과정:**
-1. `npm install` + `npm run build` (React 프론트엔드)
-2. `docker build` 백엔드 (`pip install` 포함)
-3. `docker build` 프론트엔드 (빌드된 dist/ → nginx)
+1. `docker compose build` → 백엔드/프론트엔드 이미지 동시 빌드
+2. 백엔드: `pip install` + Python dependencies
+3. 프론트엔드: `npm ci` + `npm run build` + nginx 이미지
 
 **소요 시간:** 5~10분 (네트워크/디스크 속도에 따라)
 
@@ -264,7 +266,7 @@ admin-frontend    running   0.0.0.0:8080->80/tcp
 ## 6. 운영 명령어
 
 ```bash
-cd /opt/banana-org/admin-dashboard/deploy
+cd /opt/admin-dashboard/deploy
 
 # 상태 확인
 bash setup.sh status
@@ -294,17 +296,17 @@ bash setup.sh reset-db
 새 버전 배포 시:
 
 ```bash
-cd /opt/banana-org
+cd /opt/admin-dashboard
 
 # 소스 업데이트 (git pull 또는 USB로 새 파일 복사)
-git pull --recurse-submodules
+git pull
 
 # .env 태그 업데이트
-vi admin-dashboard/deploy/.env
+vi deploy/.env
 # BACKEND_TAG=v0.2.2
 # FRONTEND_TAG=v0.3.3
 
-cd admin-dashboard/deploy
+cd deploy
 
 # 재빌드 + 재시작
 bash setup.sh build
@@ -418,29 +420,25 @@ firewall-cmd --reload
 ## 10. 파일 구조
 
 ```
-/opt/banana-org/
-├── admin-dashboard/
-│   ├── backend/
-│   │   ├── main.py              # FastAPI app
-│   │   ├── config.py            # 환경변수 설정
-│   │   ├── routers/             # API endpoints
-│   │   ├── models.py            # DB models
-│   │   └── requirements.txt     # Python dependencies
-│   ├── src/                     # React 프론트엔드
-│   │   ├── App.tsx
-│   │   ├── pages/
-│   │   └── components/
-│   ├── package.json             # npm dependencies
-│   └── deploy/                  # 배포 스크립트 (여기서 실행)
-│       ├── setup.sh             # ← 메인 스크립트
-│       ├── docker-compose.yml
-│       ├── nginx.conf
-│       ├── init.sql
-│       ├── .env                 # 환경변수 (생성됨)
-│       └── kubeconfig           # k3s config (생성됨)
-└── banana-deploy/
-    ├── admin-dashboard-backend/
-    │   └── Dockerfile           # 백엔드 이미지 빌드용
-    └── admin-dashboard-frontend/
-        └── Dockerfile           # 프론트엔드 이미지 빌드용
+/opt/admin-dashboard/
+├── backend/
+│   ├── Dockerfile               # 백엔드 이미지 빌드용
+│   ├── main.py                  # FastAPI app
+│   ├── config.py                # 환경변수 설정
+│   ├── routers/                 # API endpoints
+│   ├── models.py                # DB models
+│   └── requirements.txt         # Python dependencies
+├── src/                         # React 프론트엔드
+│   ├── App.tsx
+│   ├── pages/
+│   └── components/
+├── Dockerfile                   # 프론트엔드 이미지 빌드용
+├── package.json                 # npm dependencies
+└── deploy/                      # 배포 스크립트 (여기서 실행)
+    ├── setup.sh                 # ← 메인 스크립트
+    ├── docker-compose.yml
+    ├── nginx.conf
+    ├── init.sql
+    ├── .env                     # 환경변수 (생성됨)
+    └── kubeconfig               # k3s config (생성됨)
 ```

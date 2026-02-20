@@ -16,7 +16,6 @@
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 # .env 로드
 if [ -f "$SCRIPT_DIR/.env" ]; then
@@ -42,34 +41,11 @@ error() { echo -e "${RED}[ERROR]${NC} $1"; exit 1; }
 cmd_build() {
     info "Docker 이미지를 빌드합니다..."
 
-    # 소스 경로 확인
-    if [ ! -d "$REPO_ROOT/admin-dashboard" ]; then
-        error "소스코드를 찾을 수 없습니다: $REPO_ROOT/admin-dashboard"
-    fi
+    cd "$SCRIPT_DIR"
 
-    cd "$REPO_ROOT"
-
-    # 프론트엔드 빌드 (npm)
-    info "프론트엔드 빌드 (npm run build)..."
-    cd "$REPO_ROOT/admin-dashboard"
-    npm install
-    npm run build
-
-    cd "$REPO_ROOT"
-
-    # 백엔드 Docker 이미지 빌드
-    info "백엔드 Docker 이미지 빌드: admin-dashboard-backend:${BACKEND_TAG}"
-    docker build \
-        -t "admin-dashboard-backend:${BACKEND_TAG}" \
-        -f "$REPO_ROOT/banana-deploy/admin-dashboard-backend/Dockerfile" \
-        .
-
-    # 프론트엔드 Docker 이미지 빌드
-    info "프론트엔드 Docker 이미지 빌드: admin-dashboard-frontend:${FRONTEND_TAG}"
-    docker build \
-        -t "admin-dashboard-frontend:${FRONTEND_TAG}" \
-        -f "$REPO_ROOT/banana-deploy/admin-dashboard-frontend/Dockerfile" \
-        .
+    # docker compose build 사용 (Dockerfile 경로는 docker-compose.yml에 정의됨)
+    info "Docker Compose로 이미지 빌드 중..."
+    docker compose build
 
     info "빌드 완료!"
     docker images | grep admin-dashboard

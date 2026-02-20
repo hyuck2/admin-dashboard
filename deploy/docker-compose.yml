@@ -23,6 +23,9 @@ services:
 
   backend:
     image: admin-dashboard-backend:${BACKEND_TAG:-v0.2.1}
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
     container_name: admin-backend
     restart: unless-stopped
     depends_on:
@@ -43,6 +46,9 @@ services:
 
   frontend:
     image: admin-dashboard-frontend:${FRONTEND_TAG:-v0.3.2}
+    build:
+      context: ..
+      dockerfile: Dockerfile
     container_name: admin-frontend
     restart: unless-stopped
     depends_on:
