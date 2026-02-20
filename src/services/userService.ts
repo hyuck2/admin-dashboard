@@ -4,19 +4,19 @@ import type { Group, Permission, CreateUserRequest, UpdateUserRequest, CreateGro
 
 export const userService = {
   getUsers() {
-    return apiClient<User[]>('GET', '/users/')
+    return apiClient<User[]>('GET', '/users')
   },
 
   createUser(data: CreateUserRequest) {
-    return apiClient<User>('POST', '/users/', { body: data })
+    return apiClient<User>('POST', '/users', { body: data })
   },
 
   updateUser(id: number, data: UpdateUserRequest) {
-    return apiClient<User>('PUT', '/users/', { body: data, pathParams: [String(id)] })
+    return apiClient<User>('PUT', '/users', { body: data, pathParams: [String(id)] })
   },
 
   deleteUser(id: number) {
-    return apiClient<{ message: string }>('DELETE', '/users/', { pathParams: [String(id)] })
+    return apiClient<{ message: string }>('DELETE', '/users', { pathParams: [String(id)] })
   },
 
   getGroups() {
