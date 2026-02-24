@@ -279,7 +279,7 @@ export default function AppsPage() {
                               </button>
                             }
                             items={[
-                              { label: 'Rollback', onClick: () => setRollbackTarget(app) },
+                              { label: '버전 변경', onClick: () => setRollbackTarget(app) },
                             ]}
                           />
                         )}

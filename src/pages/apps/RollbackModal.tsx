@@ -51,11 +51,11 @@ export default function RollbackModal({ app, onClose, onComplete }: RollbackModa
         env: app.env,
         targetVersion: selectedTag,
       })
-      toast('success', `${app.appName} ${app.env}를 ${selectedTag}으로 롤백했습니다.`)
+      toast('success', `${app.appName} ${app.env}를 ${selectedTag}으로 변경했습니다.`)
       onComplete()
       onClose()
     } catch (err) {
-      toast('error', err instanceof Error ? err.message : '롤백에 실패했습니다.')
+      toast('error', err instanceof Error ? err.message : '버전 변경에 실패했습니다.')
     } finally {
       setExecuting(false)
     }
@@ -63,12 +63,12 @@ export default function RollbackModal({ app, onClose, onComplete }: RollbackModa
 
   return (
     <>
-      <Modal open onClose={executing ? () => {} : onClose} title={`Rollback - ${app.appName} (${app.env})`}>
+      <Modal open onClose={executing ? () => {} : onClose} title={`배포 버전 선택 - ${app.appName} (${app.env})`}>
         {executing ? (
           <div className="flex flex-col items-center justify-center py-10 gap-3">
             <Spinner className="h-8 w-8" />
             <p className="text-sm text-text-secondary">
-              {app.appName} {app.env}를 {selectedTag}으로 롤백 중
+              {app.appName} {app.env}를 {selectedTag}으로 배포 중
               <span className="inline-block w-4 text-left">
                 {'.'.repeat((elapsed % 3) + 1)}
               </span>
@@ -138,9 +138,9 @@ export default function RollbackModal({ app, onClose, onComplete }: RollbackModa
         open={confirmOpen && !executing}
         onClose={() => setConfirmOpen(false)}
         onConfirm={handleRollback}
-        title="롤백 확인"
-        message={`${app.appName} ${app.env}를 ${selectedTag}으로 롤백합니다. 계속하시겠습니까?`}
-        confirmText="롤백 실행"
+        title="버전 변경 확인"
+        message={`${app.appName} ${app.env}를 ${selectedTag}으로 변경합니다. 계속하시겠습니까?`}
+        confirmText="변경 실행"
         danger
       />
     </>
