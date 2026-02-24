@@ -2,8 +2,9 @@ import { apiClient } from './api'
 import type { AppStatus, AppTag, RollbackRequest, ReplicaChangeRequest } from '../types/app'
 
 export const appService = {
-  getApps() {
-    return apiClient<AppStatus[]>('GET', '/apps')
+  getApps(forceRefresh = false) {
+    const params = forceRefresh ? '?force_refresh=true' : ''
+    return apiClient<AppStatus[]>('GET', `/apps${params}`)
   },
 
   getTags(appName: string, env: string) {

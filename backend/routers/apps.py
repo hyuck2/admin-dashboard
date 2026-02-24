@@ -24,9 +24,17 @@ router = APIRouter(prefix="/apps", tags=["apps"])
 
 EXCLUDED_DIRS = {"common-chart", ".git", "admin-dashboard-frontend", "admin-dashboard-backend"}
 
-# Simple in-memory cache for app status (TTL: 60 seconds)
+# Simple in-memory cache for app status (TTL: 30 seconds)
 _app_cache: dict = {"data": None, "timestamp": 0}
-CACHE_TTL = 60
+CACHE_TTL = 30
+
+
+def _invalidate_app_cache():
+    """Invalidate app cache (call after rollback/scale)"""
+    global _app_cache
+    _app_cache["data"] = None
+    _app_cache["timestamp"] = 0
+    logger.info("App cache invalidated")
 
 
 def _run(cmd: list[str], cwd: str = None) -> subprocess.CompletedProcess:
@@ -439,6 +447,9 @@ def rollback(
     if not success:
         raise HTTPException(status_code=500, detail=f"Rollback failed: {result.stderr}")
 
+    # Invalidate cache so next request gets fresh data
+    _invalidate_app_cache()
+
     return {"message": f"Rollback to {req.targetVersion} completed and deployed"}
 
 
@@ -511,5 +522,8 @@ def change_replica(
 
     if not success:
         raise HTTPException(status_code=500, detail=f"Scale failed: {result.stderr}")
+
+    # Invalidate cache so next request gets fresh data
+    _invalidate_app_cache()
 
     return {"message": f"Replica changed to {req.replicas}"}

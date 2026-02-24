@@ -24,14 +24,21 @@ export default function AppsPage() {
   const [filterEnv, setFilterEnv] = useState('')
   const [sortKey, setSortKey] = useState<SortKey>('appName')
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc')
+  const [refreshing, setRefreshing] = useState(false)
 
-  const fetchApps = async () => {
-    setLoading(true)
+  const fetchApps = async (forceRefresh = false) => {
+    if (forceRefresh) {
+      setRefreshing(true)
+    } else {
+      setLoading(true)
+    }
+
     try {
-      const data = await appService.getApps()
+      const data = await appService.getApps(forceRefresh)
       setApps(data)
     } finally {
       setLoading(false)
+      setRefreshing(false)
     }
   }
 
@@ -129,9 +136,9 @@ export default function AppsPage() {
     <div>
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-lg font-semibold text-text-primary">Application 관리</h1>
-        <Button variant="ghost" size="sm" onClick={fetchApps}>
-          <RefreshCw size={14} className="mr-1" />
-          새로고침
+        <Button variant="ghost" size="sm" onClick={() => fetchApps(true)} disabled={refreshing}>
+          <RefreshCw size={14} className={`mr-1 ${refreshing ? 'animate-spin' : ''}`} />
+          {refreshing ? '새로고침 중...' : '새로고침'}
         </Button>
       </div>
 
