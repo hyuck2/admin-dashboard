@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { ChevronDown, ChevronRight, MoreHorizontal, RefreshCw, Search, AlertTriangle } from 'lucide-react'
+import { ChevronDown, ChevronRight, MoreHorizontal, RefreshCw, Search, AlertTriangle, ArrowUp, ArrowDown } from 'lucide-react'
 import { appService } from '../../services/appService'
 import { useAuth } from '../../hooks/useAuth'
 import type { AppStatus, ComponentInfo } from '../../types/app'
@@ -10,6 +10,9 @@ import Button from '../../components/ui/Button'
 import RollbackModal from './RollbackModal'
 import ReplicaModal from './ReplicaModal'
 
+type SortKey = 'appName' | 'env' | 'deployVersion' | 'syncStatus' | 'components' | 'replicas'
+type SortDirection = 'asc' | 'desc'
+
 export default function AppsPage() {
   const { user } = useAuth()
   const [apps, setApps] = useState<AppStatus[]>([])
@@ -19,6 +22,8 @@ export default function AppsPage() {
   const [replicaTarget, setReplicaTarget] = useState<{ app: AppStatus; component: ComponentInfo } | null>(null)
   const [filterName, setFilterName] = useState('')
   const [filterEnv, setFilterEnv] = useState('')
+  const [sortKey, setSortKey] = useState<SortKey>('appName')
+  const [sortDirection, setSortDirection] = useState<SortDirection>('asc')
 
   const fetchApps = async () => {
     setLoading(true)
@@ -37,13 +42,62 @@ export default function AppsPage() {
     return Array.from(envs).sort()
   }, [apps])
 
+  const handleSort = (key: SortKey) => {
+    if (sortKey === key) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')
+    } else {
+      setSortKey(key)
+      setSortDirection('asc')
+    }
+  }
+
   const filteredApps = useMemo(() => {
-    return apps.filter((app) => {
+    let filtered = apps.filter((app) => {
       if (filterName && !app.appName.toLowerCase().includes(filterName.toLowerCase())) return false
       if (filterEnv && app.env !== filterEnv) return false
       return true
     })
-  }, [apps, filterName, filterEnv])
+
+    // Sort
+    filtered.sort((a, b) => {
+      let aVal: any, bVal: any
+
+      switch (sortKey) {
+        case 'appName':
+          aVal = a.appName
+          bVal = b.appName
+          break
+        case 'env':
+          aVal = a.env
+          bVal = b.env
+          break
+        case 'deployVersion':
+          aVal = a.deployVersion
+          bVal = b.deployVersion
+          break
+        case 'syncStatus':
+          aVal = a.overallSyncStatus
+          bVal = b.overallSyncStatus
+          break
+        case 'components':
+          aVal = a.components.length
+          bVal = b.components.length
+          break
+        case 'replicas':
+          aVal = a.totalReplicaCurrent
+          bVal = b.totalReplicaCurrent
+          break
+        default:
+          return 0
+      }
+
+      if (aVal < bVal) return sortDirection === 'asc' ? -1 : 1
+      if (aVal > bVal) return sortDirection === 'asc' ? 1 : -1
+      return 0
+    })
+
+    return filtered
+  }, [apps, filterName, filterEnv, sortKey, sortDirection])
 
   const toggleExpand = (appKey: string) => {
     setExpandedApps((prev) => {
@@ -117,12 +171,60 @@ export default function AppsPage() {
           <thead className="bg-bg-tertiary border-b border-border-secondary">
             <tr>
               <th className="px-4 py-2.5 text-left text-text-secondary font-medium w-10"></th>
-              <th className="px-4 py-2.5 text-left text-text-secondary font-medium">앱 이름</th>
-              <th className="px-4 py-2.5 text-left text-text-secondary font-medium">환경</th>
-              <th className="px-4 py-2.5 text-left text-text-secondary font-medium">배포 버전</th>
-              <th className="px-4 py-2.5 text-left text-text-secondary font-medium">동기화</th>
-              <th className="px-4 py-2.5 text-left text-text-secondary font-medium">컴포넌트</th>
-              <th className="px-4 py-2.5 text-left text-text-secondary font-medium">총 Replica</th>
+              <th
+                className="px-4 py-2.5 text-left text-text-secondary font-medium cursor-pointer hover:text-text-primary select-none"
+                onClick={() => handleSort('appName')}
+              >
+                <div className="flex items-center gap-1">
+                  앱 이름
+                  {sortKey === 'appName' && (sortDirection === 'asc' ? <ArrowUp size={12} /> : <ArrowDown size={12} />)}
+                </div>
+              </th>
+              <th
+                className="px-4 py-2.5 text-left text-text-secondary font-medium cursor-pointer hover:text-text-primary select-none"
+                onClick={() => handleSort('env')}
+              >
+                <div className="flex items-center gap-1">
+                  환경
+                  {sortKey === 'env' && (sortDirection === 'asc' ? <ArrowUp size={12} /> : <ArrowDown size={12} />)}
+                </div>
+              </th>
+              <th
+                className="px-4 py-2.5 text-left text-text-secondary font-medium cursor-pointer hover:text-text-primary select-none"
+                onClick={() => handleSort('deployVersion')}
+              >
+                <div className="flex items-center gap-1">
+                  배포 버전
+                  {sortKey === 'deployVersion' && (sortDirection === 'asc' ? <ArrowUp size={12} /> : <ArrowDown size={12} />)}
+                </div>
+              </th>
+              <th
+                className="px-4 py-2.5 text-left text-text-secondary font-medium cursor-pointer hover:text-text-primary select-none"
+                onClick={() => handleSort('syncStatus')}
+              >
+                <div className="flex items-center gap-1">
+                  동기화
+                  {sortKey === 'syncStatus' && (sortDirection === 'asc' ? <ArrowUp size={12} /> : <ArrowDown size={12} />)}
+                </div>
+              </th>
+              <th
+                className="px-4 py-2.5 text-left text-text-secondary font-medium cursor-pointer hover:text-text-primary select-none"
+                onClick={() => handleSort('components')}
+              >
+                <div className="flex items-center gap-1">
+                  컴포넌트
+                  {sortKey === 'components' && (sortDirection === 'asc' ? <ArrowUp size={12} /> : <ArrowDown size={12} />)}
+                </div>
+              </th>
+              <th
+                className="px-4 py-2.5 text-left text-text-secondary font-medium cursor-pointer hover:text-text-primary select-none"
+                onClick={() => handleSort('replicas')}
+              >
+                <div className="flex items-center gap-1">
+                  총 Replica
+                  {sortKey === 'replicas' && (sortDirection === 'asc' ? <ArrowUp size={12} /> : <ArrowDown size={12} />)}
+                </div>
+              </th>
               <th className="px-4 py-2.5 text-left text-text-secondary font-medium w-16">액션</th>
             </tr>
           </thead>
