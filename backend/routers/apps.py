@@ -34,15 +34,26 @@ def _run(cmd: list[str], cwd: str = None) -> subprocess.CompletedProcess:
 def _sync_repo(git_url: str, local_path: str, branch: str = "master") -> str:
     """Clone if not exists, otherwise fetch + reset to origin/{branch}. Returns local_path."""
     if os.path.isdir(os.path.join(local_path, ".git")):
+        # Fetch latest changes from remote
         result = _run(["git", "-C", local_path, "fetch", "--all", "--tags"])
         if result.returncode != 0:
             logger.warning("git fetch failed for %s: %s", local_path, result.stderr)
-        _run(["git", "-C", local_path, "reset", "--hard", f"origin/{branch}"])
+            # Continue with existing state if fetch fails (network issues, etc.)
+
+        # Reset to match remote branch exactly (discards local changes)
+        result = _run(["git", "-C", local_path, "reset", "--hard", f"origin/{branch}"])
+        if result.returncode != 0:
+            logger.error("git reset failed for %s: %s", local_path, result.stderr)
+            raise HTTPException(status_code=500, detail=f"Failed to sync repo: {result.stderr}")
+
+        logger.info("Synced repo %s to %s", local_path, branch)
     else:
+        # Clone repo for the first time
         os.makedirs(os.path.dirname(local_path), exist_ok=True)
         result = _run(["git", "clone", "-b", branch, git_url, local_path])
         if result.returncode != 0:
             raise HTTPException(status_code=500, detail=f"git clone failed: {result.stderr}")
+        logger.info("Cloned repo to %s", local_path)
     return local_path
 
 
