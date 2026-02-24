@@ -32,7 +32,7 @@ services:
       mysql:
         condition: service_healthy
     environment:
-      DATABASE_URL: "mysql+pymysql://admin:${MYSQL_PASSWORD:-admin}@mysql:3306/admin_dashboard"
+      DATABASE_URL: "mysql+pymysql://admin:${MYSQL_PASSWORD:-admin}@mysql:3306/admin_dashboard?charset=utf8mb4"
       JWT_SECRET: ${JWT_SECRET:-banana-admin-secret}
       FERNET_KEY: ${FERNET_KEY:-}
       GIT_TOKEN: ${GIT_TOKEN:-}

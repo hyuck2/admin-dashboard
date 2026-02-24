@@ -8,7 +8,7 @@ BANANA_DEPLOY_GIT_URL = DEPLOY_GIT_URL  # Legacy alias
 BANANA_DEPLOY_LOCAL_PATH = os.getenv("BANANA_DEPLOY_LOCAL_PATH", "/tmp/banana-deploy")
 APP_GIT_URLS = os.getenv("APP_GIT_URLS", "")  # Deprecated - apps are in deploy repo
 APP_REPOS_LOCAL_PATH = os.getenv("APP_REPOS_LOCAL_PATH", "/tmp/app-repos")
-DATABASE_URL = os.getenv("DATABASE_URL", "mysql+pymysql://admin:admin@localhost:3306/admin_dashboard")
+DATABASE_URL = os.getenv("DATABASE_URL", "mysql+pymysql://admin:admin@localhost:3306/admin_dashboard?charset=utf8mb4")
 JWT_SECRET = os.getenv("JWT_SECRET", "banana-admin-secret")
 JWT_EXPIRE_HOURS = int(os.getenv("JWT_EXPIRE_HOURS", "24"))
 KUBECONFIG_PATH = os.getenv("KUBECONFIG_PATH", os.getenv("KUBECONFIG", os.path.expanduser("~/.kube/config")))
