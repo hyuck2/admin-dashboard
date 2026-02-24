@@ -97,19 +97,29 @@ def _get_k8s_info(component_name: str, env: str, repo_name: str = None, deploy_p
         # Try to read deployment name from common.yaml
         deploy_name = component_name  # fallback
         if deploy_path:
+            # Path: {deploy_path}/{repo_name}/{component_name}/common.yaml
             common_yaml_path = os.path.join(deploy_path, repo_name, component_name, "common.yaml")
+            logger.debug("Reading deployment name from: %s", common_yaml_path)
             try:
                 with open(common_yaml_path, "r") as f:
                     common_data = yaml.safe_load(f)
                 if common_data:
-                    # Try different possible field names
-                    deploy_name = (
-                        common_data.get("appname") or
-                        common_data.get("app", {}).get("name") or
-                        component_name
-                    )
+                    # Try app.name first (production format), then appname (legacy)
+                    app_name_from_yaml = common_data.get("app", {}).get("name")
+                    if not app_name_from_yaml:
+                        app_name_from_yaml = common_data.get("appname")
+
+                    if app_name_from_yaml:
+                        deploy_name = app_name_from_yaml
+                        logger.debug("Using deployment name from yaml: %s", deploy_name)
+                    else:
+                        logger.warning("No app.name or appname found in %s, using folder name: %s", common_yaml_path, component_name)
+                else:
+                    logger.warning("Empty yaml data in %s", common_yaml_path)
+            except FileNotFoundError:
+                logger.warning("common.yaml not found at %s, using folder name: %s", common_yaml_path, component_name)
             except Exception as e:
-                logger.debug("Failed to read appname from %s: %s", common_yaml_path, str(e))
+                logger.warning("Failed to read appname from %s: %s, using folder name: %s", common_yaml_path, str(e), component_name)
     else:
         # Backward compatibility: single component app
         ns = f"{env}-{component_name}"
