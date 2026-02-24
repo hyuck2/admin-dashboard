@@ -255,64 +255,83 @@ def get_apps(
     return apps
 
 
+def _get_app_repos_config(deploy_path: str) -> dict:
+    """Read apps-git.yaml from deploy repo."""
+    apps_git_path = os.path.join(deploy_path, "apps-git.yaml")
+    if not os.path.isfile(apps_git_path):
+        logger.warning("apps-git.yaml not found at %s", apps_git_path)
+        return {}
+
+    try:
+        with open(apps_git_path, "r", encoding="utf-8") as f:
+            data = yaml.safe_load(f)
+        return data or {}
+    except Exception as e:
+        logger.error("Failed to read apps-git.yaml: %s", str(e))
+        return {}
+
+
 @router.get("/tags", response_model=list[AppTagResponse])
 def get_tags(
     appName: str = Query(..., description="App name"),
-    env: str = Query(..., description="Environment (prod/stage)"),
+    env: str = Query(..., description="Environment (not used, for API compatibility)"),
     current_user: User = Depends(get_current_user),
 ):
-    # Get tags from deploy repo git history instead of app repo
+    """
+    Get all available versions from app's git repository.
+    Returns all tags regardless of environment.
+    """
     try:
         deploy_path = _sync_banana_deploy()
     except Exception as e:
         logger.warning("Failed to sync deploy repo: %s", str(e))
         raise HTTPException(status_code=503, detail="Deploy repository not configured.")
 
-    env_yaml_path = f"{appName}/image/{env}.yaml"
+    # Read apps-git.yaml
+    apps_config = _get_app_repos_config(deploy_path)
+    if appName not in apps_config:
+        logger.warning("App %s not found in apps-git.yaml", appName)
+        raise HTTPException(status_code=404, detail=f"App '{appName}' not configured in apps-git.yaml")
 
-    # Get git log for the specific env yaml file to find previous versions
+    app_info = apps_config[appName]
+    git_url = app_info.get("git_url")
+    branch = app_info.get("branch", "master")
+
+    if not git_url:
+        raise HTTPException(status_code=404, detail=f"git_url not configured for app '{appName}'")
+
+    # Sync app repo
+    local_path = os.path.join(APP_REPOS_LOCAL_PATH, appName)
+    try:
+        _sync_repo(inject_token(git_url), local_path, branch)
+    except Exception as e:
+        logger.error("Failed to sync app repo %s: %s", appName, str(e))
+        raise HTTPException(status_code=503, detail=f"Failed to sync app repository: {str(e)}")
+
+    # Get all git tags from app repo
     result = _run([
-        "git", "-C", deploy_path, "log",
-        "--format=%H %aI",
-        "--all",
-        "-100",  # Last 100 commits
-        "--", env_yaml_path
+        "git", "-C", local_path, "tag",
+        "--sort=-creatordate",
+        "--format=%(refname:short) %(creatordate:iso8601)"
     ])
 
     if result.returncode != 0:
-        logger.warning("git log failed: %s", result.stderr)
+        logger.warning("git tag failed for %s: %s", appName, result.stderr)
         return []
 
-    # Extract tags from each commit
-    tags_dict = {}
+    # Parse tags
+    tags = []
     for line in result.stdout.strip().split("\n"):
         if not line.strip():
             continue
         parts = line.strip().split(" ", 1)
-        if len(parts) < 2:
-            continue
-        commit_hash = parts[0]
-        commit_date = parts[1]
+        tag_name = parts[0]
+        created_at = parts[1] if len(parts) > 1 else ""
 
-        # Get the tag value from this commit
-        show_result = _run([
-            "git", "-C", deploy_path, "show",
-            f"{commit_hash}:{env_yaml_path}"
-        ])
-
-        if show_result.returncode == 0:
-            try:
-                data = yaml.safe_load(show_result.stdout)
-                if data and "image" in data and "tag" in data["image"]:
-                    tag = data["image"]["tag"]
-                    if tag not in tags_dict:
-                        tags_dict[tag] = commit_date
-            except Exception:
-                pass
-
-    # Convert to list and sort by version
-    tags = [{"tag": tag, "createdAt": date} for tag, date in tags_dict.items()]
-    tags.sort(key=lambda x: x["tag"], reverse=True)
+        tags.append({
+            "tag": tag_name,
+            "createdAt": created_at
+        })
 
     return tags
 
@@ -324,65 +343,37 @@ def rollback(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    """
+    Rollback app to a specific version.
+    Calls rollback_and_deploy.sh which:
+    1. Updates image/{env}.yaml
+    2. Git commit + tag {app}-{env}-{version}
+    3. Git push
+    4. Deploys to K8s
+    """
     require_permission(current_user, "app_deploy", req.appName, "write")
     try:
         deploy_path = _sync_banana_deploy()
     except Exception as e:
         logger.error("Failed to sync deploy repo: %s", str(e))
-        raise HTTPException(status_code=503, detail="Deploy repository not configured. Set DEPLOY_GIT_URL in environment.")
+        raise HTTPException(status_code=503, detail="Deploy repository not configured.")
 
     # Validate app directory exists
-    common_yaml = os.path.join(deploy_path, req.appName, "common.yaml")
-    if not os.path.isfile(common_yaml):
-        raise HTTPException(status_code=404, detail=f"App '{req.appName}' not found in banana-deploy")
-
     env_yaml_path = os.path.join(deploy_path, req.appName, "image", f"{req.env}.yaml")
     if not os.path.isfile(env_yaml_path):
-        raise HTTPException(status_code=404, detail=f"Environment '{req.env}' not found for {req.appName}")
+        raise HTTPException(status_code=404, detail=f"App '{req.appName}' or environment '{req.env}' not found")
 
-    # 1. Update image tag in env yaml
-    with open(env_yaml_path, "w") as f:
-        yaml.dump({"image": {"tag": req.targetVersion}}, f, default_flow_style=False)
+    logger.info("Rolling back %s %s to %s", req.appName, req.env, req.targetVersion)
 
-    # 2. Try loading image to Kind cluster (optional)
-    try:
-        _run([
-            "kind", "load", "docker-image",
-            f"{req.appName}:{req.targetVersion}",
-            "--name", "cluster-staging"
-        ])
-    except FileNotFoundError:
-        logger.info("kind not available, skipping image load")
-
-    # 3. Git commit + push the yaml change
-    _run(["git", "-C", deploy_path, "config", "user.email", "admin-dashboard@banana.local"])
-    _run(["git", "-C", deploy_path, "config", "user.name", "admin-dashboard"])
-    _run(["git", "-C", deploy_path, "add", env_yaml_path])
-    commit_result = _run([
-        "git", "-C", deploy_path, "commit",
-        "-m", f"rollback: {req.appName} {req.env} to {req.targetVersion}",
-    ])
-
-    git_push_success = False
-    if commit_result.returncode == 0:
-        from config import DEPLOY_GIT_BRANCH
-        push_result = _run(["git", "-C", deploy_path, "push", "origin", DEPLOY_GIT_BRANCH])
-        if push_result.returncode == 0:
-            git_push_success = True
-            logger.info("Git push successful for %s %s to %s", req.appName, req.env, req.targetVersion)
-        else:
-            logger.warning("git push failed (GIT_TOKEN may not be set): %s", push_result.stderr)
-    else:
-        logger.warning("git commit returned code %d: %s", commit_result.returncode, commit_result.stderr)
-
-    # 4. Deploy via bash helm-deploy.sh
+    # Call rollback_and_deploy.sh
     result = _run(
-        ["bash", "helm-deploy.sh", req.appName, req.env],
+        ["bash", "rollback_and_deploy.sh", req.appName, req.env, req.targetVersion],
         cwd=deploy_path,
     )
 
     success = result.returncode == 0
 
+    # Log the rollback attempt
     audit = AuditLog(
         user_id=current_user.id,
         action="rollback",
@@ -404,11 +395,7 @@ def rollback(
     if not success:
         raise HTTPException(status_code=500, detail=f"Rollback failed: {result.stderr}")
 
-    message = f"Rollback to {req.targetVersion} completed (K8s deployed)"
-    if not git_push_success:
-        message += " ⚠️ Deploy repo not updated (GIT_TOKEN not configured)"
-
-    return {"message": message}
+    return {"message": f"Rollback to {req.targetVersion} completed and deployed"}
 
 
 @router.post("/replica", response_model=MessageResponse)
