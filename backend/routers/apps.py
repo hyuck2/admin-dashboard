@@ -1,6 +1,8 @@
 import os
 import subprocess
 import logging
+import time
+from typing import Optional
 
 import yaml
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
@@ -21,6 +23,10 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/apps", tags=["apps"])
 
 EXCLUDED_DIRS = {"common-chart", ".git", "admin-dashboard-frontend", "admin-dashboard-backend"}
+
+# Simple in-memory cache for app status (TTL: 60 seconds)
+_app_cache: dict = {"data": None, "timestamp": 0}
+CACHE_TTL = 60
 
 
 def _run(cmd: list[str], cwd: str = None) -> subprocess.CompletedProcess:
@@ -161,9 +167,21 @@ def _get_k8s_info(component_name: str, env: str, repo_name: str = None, deploy_p
 
 @router.get("", response_model=list[AppStatusResponse])
 def get_apps(
+    force_refresh: bool = Query(False, description="Bypass cache and force refresh"),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    global _app_cache
+
+    # Check cache (unless force refresh)
+    if not force_refresh and _app_cache["data"] is not None:
+        age = time.time() - _app_cache["timestamp"]
+        if age < CACHE_TTL:
+            logger.debug("Returning cached app data (age: %.1fs)", age)
+            return _app_cache["data"]
+
+    logger.info("Refreshing app data (cache miss or expired)")
+
     try:
         deploy_path = _sync_banana_deploy()
     except Exception as e:
@@ -251,6 +269,10 @@ def get_apps(
             db.add(Permission(type="app_deploy", target=app_name, action="write"))
             logger.info("Auto-created permission: app_deploy %s write", app_name)
     db.commit()
+
+    # Update cache
+    _app_cache["data"] = apps
+    _app_cache["timestamp"] = time.time()
 
     return apps
 
