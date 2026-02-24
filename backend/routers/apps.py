@@ -84,19 +84,36 @@ def _get_deploy_version(deploy_path: str, app_name: str, env: str) -> str:
     return data.get("image", {}).get("tag", "unknown") if data else "unknown"
 
 
-def _get_k8s_info(component_name: str, env: str, repo_name: str = None) -> dict:
+def _get_k8s_info(component_name: str, env: str, repo_name: str = None, deploy_path: str = None) -> dict:
     """
     Get K8s deployment info.
-    - For multi-component apps: namespace = {repo_name}-{env}, deployment = {component_name}-{env}
-    - For single-component apps: namespace = {component_name}-{env}, deployment = {component_name}-{env}
+    - namespace: {env}-{repo_name} (e.g., prod-project1)
+    - deployment: from common.yaml's appname or app.name field
     """
     if repo_name:
-        ns = f"{repo_name}-{env}"
-        deploy_name = f"{component_name}-{env}"
+        # Multi-component app: read deployment name from common.yaml
+        ns = f"{env}-{repo_name}"
+
+        # Try to read deployment name from common.yaml
+        deploy_name = component_name  # fallback
+        if deploy_path:
+            common_yaml_path = os.path.join(deploy_path, repo_name, component_name, "common.yaml")
+            try:
+                with open(common_yaml_path, "r") as f:
+                    common_data = yaml.safe_load(f)
+                if common_data:
+                    # Try different possible field names
+                    deploy_name = (
+                        common_data.get("appname") or
+                        common_data.get("app", {}).get("name") or
+                        component_name
+                    )
+            except Exception as e:
+                logger.debug("Failed to read appname from %s: %s", common_yaml_path, str(e))
     else:
         # Backward compatibility: single component app
-        ns = f"{component_name}-{env}"
-        deploy_name = f"{component_name}-{env}"
+        ns = f"{env}-{component_name}"
+        deploy_name = component_name
 
     result = _run([
         "kubectl", "get", "deploy", deploy_name,
@@ -187,7 +204,7 @@ def get_apps(
             all_synced = True
 
             for comp_name in sorted(component_folders):
-                k8s_info = _get_k8s_info(comp_name, env, repo_folder)
+                k8s_info = _get_k8s_info(comp_name, env, repo_folder, deploy_path)
                 comp_sync = "Synced" if deploy_version == k8s_info["k8sVersion"] else "OutOfSync"
 
                 if comp_sync == "OutOfSync":
