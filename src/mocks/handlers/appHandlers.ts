@@ -19,8 +19,12 @@ export function handleRollback(body: RollbackRequest, userName: string) {
 
   const prevVersion = app.deployVersion
   app.deployVersion = body.targetVersion
-  app.k8sVersion = body.targetVersion
-  app.syncStatus = 'Synced'
+  app.components.forEach(comp => {
+    comp.deployVersion = body.targetVersion
+    comp.k8sVersion = body.targetVersion
+    comp.syncStatus = 'Synced'
+  })
+  app.overallSyncStatus = 'Synced'
 
   mockAuditLogs.unshift({
     id: mockAuditLogs.length + 1,
@@ -43,9 +47,16 @@ export function handleChangeReplica(body: ReplicaChangeRequest, userName: string
   const app = apps.find((a) => a.appName === body.appName && a.env === body.env)
   if (!app) return { status: 404, data: { message: '앱을 찾을 수 없습니다.' } }
 
-  const prevReplica = app.replicaDesired
-  app.replicaDesired = body.replicas
-  app.replicaCurrent = body.replicas
+  const component = app.components.find(c => c.name === body.componentName)
+  if (!component) return { status: 404, data: { message: '컴포넌트를 찾을 수 없습니다.' } }
+
+  const prevReplica = component.replicaDesired
+  component.replicaDesired = body.replicas
+  component.replicaCurrent = body.replicas
+
+  // Recalculate totals
+  app.totalReplicaCurrent = app.components.reduce((sum, c) => sum + c.replicaCurrent, 0)
+  app.totalReplicaDesired = app.components.reduce((sum, c) => sum + c.replicaDesired, 0)
 
   mockAuditLogs.unshift({
     id: mockAuditLogs.length + 1,
@@ -53,13 +64,13 @@ export function handleChangeReplica(body: ReplicaChangeRequest, userName: string
     userName,
     action: 'scale',
     menu: 'apps',
-    targetType: 'app',
-    targetName: `${body.appName}-${body.env}`,
-    detail: { from: prevReplica, to: body.replicas },
+    targetType: 'component',
+    targetName: body.componentName,
+    detail: { appName: body.appName, env: body.env, from: prevReplica, to: body.replicas },
     result: 'success',
     ipAddress: '127.0.0.1',
     createdAt: new Date().toISOString(),
   })
 
-  return { status: 200, data: { message: `${body.appName} ${body.env} Replica를 ${body.replicas}로 변경했습니다.` } }
+  return { status: 200, data: { message: `${body.componentName} Replica를 ${body.replicas}로 변경했습니다.` } }
 }

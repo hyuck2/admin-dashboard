@@ -48,14 +48,23 @@ class ChangePasswordResponse(BaseModel):
 
 
 # --- App ---
-class AppStatusResponse(BaseModel):
-    appName: str
-    env: str
+class ComponentInfo(BaseModel):
+    name: str
     deployVersion: str
     k8sVersion: str
     syncStatus: str
     replicaCurrent: int
     replicaDesired: int
+
+
+class AppStatusResponse(BaseModel):
+    appName: str
+    env: str
+    deployVersion: str
+    components: list[ComponentInfo]
+    overallSyncStatus: str
+    totalReplicaCurrent: int
+    totalReplicaDesired: int
 
 
 class AppTagResponse(BaseModel):
@@ -72,6 +81,7 @@ class RollbackRequest(BaseModel):
 class ReplicaChangeRequest(BaseModel):
     appName: str
     env: str
+    componentName: str
     replicas: int
 
 

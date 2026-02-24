@@ -1,13 +1,22 @@
 export type SyncStatus = 'Synced' | 'OutOfSync'
 
-export interface AppStatus {
-  appName: string
-  env: string
+export interface ComponentInfo {
+  name: string
   deployVersion: string
   k8sVersion: string
   syncStatus: SyncStatus
   replicaCurrent: number
   replicaDesired: number
+}
+
+export interface AppStatus {
+  appName: string
+  env: string
+  deployVersion: string
+  components: ComponentInfo[]
+  overallSyncStatus: SyncStatus
+  totalReplicaCurrent: number
+  totalReplicaDesired: number
 }
 
 export interface AppTag {
@@ -24,5 +33,6 @@ export interface RollbackRequest {
 export interface ReplicaChangeRequest {
   appName: string
   env: string
+  componentName: string
   replicas: number
 }

@@ -1,9 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
-import { ArrowDown, ArrowUp, ArrowUpDown, MoreHorizontal, RefreshCw, Search } from 'lucide-react'
+import { ChevronDown, ChevronRight, MoreHorizontal, RefreshCw, Search, AlertTriangle } from 'lucide-react'
 import { appService } from '../../services/appService'
 import { useAuth } from '../../hooks/useAuth'
-import type { AppStatus } from '../../types/app'
-import Table from '../../components/ui/Table'
+import type { AppStatus, ComponentInfo } from '../../types/app'
 import Badge from '../../components/ui/Badge'
 import Dropdown from '../../components/ui/Dropdown'
 import Spinner from '../../components/ui/Spinner'
@@ -15,12 +14,11 @@ export default function AppsPage() {
   const { user } = useAuth()
   const [apps, setApps] = useState<AppStatus[]>([])
   const [loading, setLoading] = useState(true)
+  const [expandedApps, setExpandedApps] = useState<Set<string>>(new Set())
   const [rollbackTarget, setRollbackTarget] = useState<AppStatus | null>(null)
-  const [replicaTarget, setReplicaTarget] = useState<AppStatus | null>(null)
+  const [replicaTarget, setReplicaTarget] = useState<{ app: AppStatus; component: ComponentInfo } | null>(null)
   const [filterName, setFilterName] = useState('')
   const [filterEnv, setFilterEnv] = useState('')
-  const [sortKey, setSortKey] = useState<string>('')
-  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
 
   const fetchApps = async () => {
     setLoading(true)
@@ -47,110 +45,23 @@ export default function AppsPage() {
     })
   }, [apps, filterName, filterEnv])
 
-  const sortedApps = useMemo(() => {
-    if (!sortKey) return filteredApps
-    return [...filteredApps].sort((a, b) => {
-      let va: string | number
-      let vb: string | number
-      if (sortKey === 'replica') {
-        va = a.replicaCurrent
-        vb = b.replicaCurrent
+  const toggleExpand = (appKey: string) => {
+    setExpandedApps((prev) => {
+      const next = new Set(prev)
+      if (next.has(appKey)) {
+        next.delete(appKey)
       } else {
-        va = String((a as unknown as Record<string, unknown>)[sortKey] ?? '')
-        vb = String((b as unknown as Record<string, unknown>)[sortKey] ?? '')
+        next.add(appKey)
       }
-      if (va < vb) return sortDir === 'asc' ? -1 : 1
-      if (va > vb) return sortDir === 'asc' ? 1 : -1
-      return 0
+      return next
     })
-  }, [filteredApps, sortKey, sortDir])
-
-  const handleSort = (key: string) => {
-    if (key === 'actions') return
-    if (sortKey === key) {
-      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))
-    } else {
-      setSortKey(key)
-      setSortDir('asc')
-    }
   }
 
-  const SortIcon = ({ colKey }: { colKey: string }) => {
-    if (colKey === 'actions') return null
-    if (sortKey !== colKey) return <ArrowUpDown size={12} className="ml-1 opacity-30" />
-    return sortDir === 'asc'
-      ? <ArrowUp size={12} className="ml-1" />
-      : <ArrowDown size={12} className="ml-1" />
+  const canDeploy = (appName: string) => {
+    return user?.role === 'admin' || user?.permissions?.some(
+      (p) => p.type === 'app_deploy' && p.target === appName && p.action === 'write'
+    )
   }
-
-  const columns = [
-    {
-      key: 'appName',
-      header: 'App 이름',
-      sortable: true,
-      render: (item: AppStatus) => <span className="font-medium">{item.appName}</span>,
-    },
-    {
-      key: 'env',
-      header: '환경',
-      sortable: true,
-      render: (item: AppStatus) => (
-        <Badge variant={item.env === 'prod' ? 'danger' : 'default'}>{item.env}</Badge>
-      ),
-    },
-    {
-      key: 'deployVersion',
-      header: '배포 버전',
-      sortable: true,
-      render: (item: AppStatus) => item.deployVersion,
-    },
-    {
-      key: 'k8sVersion',
-      header: 'K8s 버전',
-      sortable: true,
-      render: (item: AppStatus) => item.k8sVersion,
-    },
-    {
-      key: 'syncStatus',
-      header: '동기화',
-      sortable: true,
-      render: (item: AppStatus) => (
-        <Badge variant={item.syncStatus === 'Synced' ? 'success' : 'danger'}>
-          {item.syncStatus}
-        </Badge>
-      ),
-    },
-    {
-      key: 'replica',
-      header: 'Replica',
-      sortable: true,
-      render: (item: AppStatus) => `${item.replicaCurrent}/${item.replicaDesired}`,
-    },
-    {
-      key: 'actions',
-      header: '액션',
-      className: 'w-16',
-      render: (item: AppStatus) => {
-        const canDeploy = user?.role === 'admin' || user?.permissions?.some(
-          (p) => p.type === 'app_deploy' && p.target === item.appName && p.action === 'write'
-        )
-        if (!canDeploy) return null
-        return (
-          <Dropdown
-            trigger={
-              <button className="p-1 rounded-md hover:bg-bg-hover text-text-tertiary">
-                <MoreHorizontal size={16} />
-              </button>
-            }
-            items={[
-              { label: 'Rollback', onClick: () => setRollbackTarget(item) },
-              { label: 'Replica 변경', onClick: () => setReplicaTarget(item) },
-            ]}
-          />
-        )
-      },
-    },
-  ]
 
   if (loading) {
     return (
@@ -163,7 +74,7 @@ export default function AppsPage() {
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
-        <h1 className="text-lg font-semibold text-text-primary">UI Application 관리</h1>
+        <h1 className="text-lg font-semibold text-text-primary">Application 관리</h1>
         <Button variant="ghost" size="sm" onClick={fetchApps}>
           <RefreshCw size={14} className="mr-1" />
           새로고침
@@ -201,29 +112,146 @@ export default function AppsPage() {
         )}
       </div>
 
-      <Table
-        columns={columns}
-        data={sortedApps}
-        keyExtractor={(item) => `${item.appName}-${item.env}`}
-        sortKey={sortKey}
-        sortDir={sortDir}
-        onSort={handleSort}
-        renderSortIcon={(colKey) => <SortIcon colKey={colKey} />}
-      />
+      <div className="bg-bg-primary border border-border-secondary rounded-lg overflow-hidden">
+        <table className="w-full text-sm">
+          <thead className="bg-bg-tertiary border-b border-border-secondary">
+            <tr>
+              <th className="px-4 py-2.5 text-left text-text-secondary font-medium w-10"></th>
+              <th className="px-4 py-2.5 text-left text-text-secondary font-medium">앱 이름</th>
+              <th className="px-4 py-2.5 text-left text-text-secondary font-medium">환경</th>
+              <th className="px-4 py-2.5 text-left text-text-secondary font-medium">배포 버전</th>
+              <th className="px-4 py-2.5 text-left text-text-secondary font-medium">동기화</th>
+              <th className="px-4 py-2.5 text-left text-text-secondary font-medium">컴포넌트</th>
+              <th className="px-4 py-2.5 text-left text-text-secondary font-medium">총 Replica</th>
+              <th className="px-4 py-2.5 text-left text-text-secondary font-medium w-16">액션</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filteredApps.length === 0 ? (
+              <tr>
+                <td colSpan={8} className="px-4 py-8 text-center text-text-tertiary">
+                  앱이 없습니다
+                </td>
+              </tr>
+            ) : (
+              filteredApps.map((app) => {
+                const appKey = `${app.appName}-${app.env}`
+                const isExpanded = expandedApps.has(appKey)
+                return (
+                  <tr key={appKey} className="border-b border-border-primary last:border-0">
+                    <td colSpan={8} className="p-0">
+                      {/* Main row */}
+                      <div className="flex items-center px-4 py-2.5 hover:bg-bg-hover">
+                        <button
+                          onClick={() => toggleExpand(appKey)}
+                          className="mr-2 text-text-tertiary hover:text-text-primary"
+                        >
+                          {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                        </button>
+                        <div className="flex-1 grid grid-cols-7 gap-4 items-center">
+                          <span className="font-medium text-text-primary">{app.appName}</span>
+                          <Badge variant={app.env === 'prod' ? 'danger' : 'default'}>{app.env}</Badge>
+                          <span className="text-text-primary">{app.deployVersion}</span>
+                          <Badge variant={app.overallSyncStatus === 'Synced' ? 'success' : 'danger'}>
+                            {app.overallSyncStatus}
+                          </Badge>
+                          <span className="text-text-secondary">{app.components.length}개</span>
+                          <span className="text-text-primary">{app.totalReplicaCurrent}/{app.totalReplicaDesired}</span>
+                          <div>
+                            {canDeploy(app.appName) && (
+                              <Dropdown
+                                trigger={
+                                  <button className="p-1 rounded-md hover:bg-bg-hover text-text-tertiary">
+                                    <MoreHorizontal size={16} />
+                                  </button>
+                                }
+                                items={[
+                                  { label: 'Rollback', onClick: () => setRollbackTarget(app) },
+                                ]}
+                              />
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Expanded component rows */}
+                      {isExpanded && (
+                        <div className="bg-bg-secondary border-t border-border-primary">
+                          <table className="w-full text-sm">
+                            <thead className="bg-bg-tertiary">
+                              <tr>
+                                <th className="px-12 py-2 text-left text-text-tertiary font-normal text-xs">컴포넌트</th>
+                                <th className="px-4 py-2 text-left text-text-tertiary font-normal text-xs">배포 버전</th>
+                                <th className="px-4 py-2 text-left text-text-tertiary font-normal text-xs">K8s 버전</th>
+                                <th className="px-4 py-2 text-left text-text-tertiary font-normal text-xs">상태</th>
+                                <th className="px-4 py-2 text-left text-text-tertiary font-normal text-xs">Replica</th>
+                                <th className="px-4 py-2 text-left text-text-tertiary font-normal text-xs w-32">액션</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {app.components.map((comp) => (
+                                <tr key={comp.name} className="border-t border-border-primary hover:bg-bg-hover">
+                                  <td className="px-12 py-2.5 text-text-primary">{comp.name}</td>
+                                  <td className="px-4 py-2.5 text-text-secondary">{comp.deployVersion}</td>
+                                  <td className="px-4 py-2.5 text-text-primary flex items-center gap-1">
+                                    {comp.k8sVersion}
+                                    {comp.syncStatus === 'OutOfSync' && (
+                                      <AlertTriangle size={14} className="text-danger" />
+                                    )}
+                                  </td>
+                                  <td className="px-4 py-2.5">
+                                    <Badge variant={comp.syncStatus === 'Synced' ? 'success' : 'danger'}>
+                                      {comp.syncStatus === 'Synced' ? '✓' : '⚠'}
+                                    </Badge>
+                                  </td>
+                                  <td className="px-4 py-2.5 text-text-primary">{comp.replicaCurrent}/{comp.replicaDesired}</td>
+                                  <td className="px-4 py-2.5">
+                                    {canDeploy(app.appName) && (
+                                      <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        onClick={() => setReplicaTarget({ app, component: comp })}
+                                      >
+                                        Scale
+                                      </Button>
+                                    )}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                )
+              })
+            )}
+          </tbody>
+        </table>
+      </div>
 
       {rollbackTarget && (
         <RollbackModal
           app={rollbackTarget}
           onClose={() => setRollbackTarget(null)}
-          onComplete={fetchApps}
+          onComplete={() => {
+            setRollbackTarget(null)
+            fetchApps()
+          }}
         />
       )}
 
       {replicaTarget && (
         <ReplicaModal
-          app={replicaTarget}
+          open={true}
+          app={replicaTarget.app}
+          component={replicaTarget.component}
           onClose={() => setReplicaTarget(null)}
-          onComplete={fetchApps}
+          onComplete={() => {
+            setReplicaTarget(null)
+            fetchApps()
+          }}
         />
       )}
     </div>

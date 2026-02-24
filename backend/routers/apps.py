@@ -73,9 +73,19 @@ def _get_deploy_version(deploy_path: str, app_name: str, env: str) -> str:
     return data.get("image", {}).get("tag", "unknown") if data else "unknown"
 
 
-def _get_k8s_info(app_name: str, env: str) -> dict:
-    ns = f"{app_name}-{env}"
-    deploy_name = f"{app_name}-{env}"
+def _get_k8s_info(component_name: str, env: str, repo_name: str = None) -> dict:
+    """
+    Get K8s deployment info.
+    - For multi-component apps: namespace = {repo_name}-{env}, deployment = {component_name}-{env}
+    - For single-component apps: namespace = {component_name}-{env}, deployment = {component_name}-{env}
+    """
+    if repo_name:
+        ns = f"{repo_name}-{env}"
+        deploy_name = f"{component_name}-{env}"
+    else:
+        # Backward compatibility: single component app
+        ns = f"{component_name}-{env}"
+        deploy_name = f"{component_name}-{env}"
 
     result = _run([
         "kubectl", "get", "deploy", deploy_name,
@@ -109,45 +119,81 @@ def get_apps(
         deploy_path = _sync_banana_deploy()
     except Exception as e:
         logger.warning("Failed to sync deploy repo: %s", str(e))
-        # Return empty list if deploy repo is not accessible
         return []
 
     apps = []
     discovered_apps = set()
 
-    for entry in os.listdir(deploy_path):
-        if entry in EXCLUDED_DIRS:
-            continue
-        common_yaml = os.path.join(deploy_path, entry, "common.yaml")
-        if not os.path.isfile(common_yaml):
+    # Scan repo folders (e.g., project1, project2)
+    for repo_folder in os.listdir(deploy_path):
+        if repo_folder in EXCLUDED_DIRS:
             continue
 
-        image_dir = os.path.join(deploy_path, entry, "image")
+        repo_path = os.path.join(deploy_path, repo_folder)
+        if not os.path.isdir(repo_path):
+            continue
+
+        image_dir = os.path.join(repo_path, "image")
         if not os.path.isdir(image_dir):
             continue
 
-        discovered_apps.add(entry)
+        discovered_apps.add(repo_folder)
 
+        # Find all component folders ending with -ui
+        component_folders = []
+        for item in os.listdir(repo_path):
+            item_path = os.path.join(repo_path, item)
+            if os.path.isdir(item_path) and item.endswith("-ui"):
+                common_yaml = os.path.join(item_path, "common.yaml")
+                if os.path.isfile(common_yaml):
+                    component_folders.append(item)
+
+        if not component_folders:
+            continue
+
+        # Process each environment
         for env_file in os.listdir(image_dir):
             if not env_file.endswith(".yaml"):
                 continue
             env = env_file.replace(".yaml", "")
-            deploy_version = _get_deploy_version(deploy_path, entry, env)
-            k8s_info = _get_k8s_info(entry, env)
+            deploy_version = _get_deploy_version(deploy_path, repo_folder, env)
 
-            sync_status = "Synced" if deploy_version == k8s_info["k8sVersion"] else "OutOfSync"
+            # Gather component info
+            components = []
+            total_replica_current = 0
+            total_replica_desired = 0
+            all_synced = True
+
+            for comp_name in sorted(component_folders):
+                k8s_info = _get_k8s_info(comp_name, env, repo_folder)
+                comp_sync = "Synced" if deploy_version == k8s_info["k8sVersion"] else "OutOfSync"
+
+                if comp_sync == "OutOfSync":
+                    all_synced = False
+
+                components.append({
+                    "name": comp_name,
+                    "deployVersion": deploy_version,
+                    "k8sVersion": k8s_info["k8sVersion"],
+                    "syncStatus": comp_sync,
+                    "replicaCurrent": k8s_info["replicaCurrent"],
+                    "replicaDesired": k8s_info["replicaDesired"],
+                })
+
+                total_replica_current += k8s_info["replicaCurrent"]
+                total_replica_desired += k8s_info["replicaDesired"]
 
             apps.append({
-                "appName": entry,
+                "appName": repo_folder,
                 "env": env,
                 "deployVersion": deploy_version,
-                "k8sVersion": k8s_info["k8sVersion"],
-                "syncStatus": sync_status,
-                "replicaCurrent": k8s_info["replicaCurrent"],
-                "replicaDesired": k8s_info["replicaDesired"],
+                "components": components,
+                "overallSyncStatus": "Synced" if all_synced else "OutOfSync",
+                "totalReplicaCurrent": total_replica_current,
+                "totalReplicaDesired": total_replica_desired,
             })
 
-    # Auto-create app_deploy permissions for newly discovered apps
+    # Auto-create app_deploy permissions
     existing_targets = {
         p.target for p in db.query(Permission).filter(Permission.type == "app_deploy").all()
     }
@@ -325,7 +371,7 @@ def change_replica(
 ):
     require_permission(current_user, "app_deploy", req.appName, "write")
     ns = f"{req.appName}-{req.env}"
-    deploy_name = f"{req.appName}-{req.env}"
+    deploy_name = f"{req.componentName}-{req.env}"
 
     result = _run([
         "kubectl", "scale", "deploy", deploy_name,
@@ -339,9 +385,10 @@ def change_replica(
         user_id=current_user.id,
         action="scale",
         menu="apps",
-        target_type="app",
-        target_name=req.appName,
+        target_type="component",
+        target_name=req.componentName,
         detail={
+            "appName": req.appName,
             "env": req.env,
             "replicas": req.replicas,
             "stdout": result.stdout[-500:] if result.stdout else "",
