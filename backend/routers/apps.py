@@ -256,7 +256,10 @@ def get_apps(
 
 
 def _get_app_repos_config(deploy_path: str) -> dict:
-    """Read apps-git.yaml from deploy repo."""
+    """
+    Read apps-git.yaml from deploy repo.
+    Format: app_name: git_url (simple string)
+    """
     apps_git_path = os.path.join(deploy_path, "apps-git.yaml")
     if not os.path.isfile(apps_git_path):
         logger.warning("apps-git.yaml not found at %s", apps_git_path)
@@ -269,6 +272,27 @@ def _get_app_repos_config(deploy_path: str) -> dict:
     except Exception as e:
         logger.error("Failed to read apps-git.yaml: %s", str(e))
         return {}
+
+
+def _fetch_tags_from_repo(git_url: str, local_path: str) -> str:
+    """
+    Fetch tags from git repo without checking out any branch.
+    Just clone (if needed) and fetch tags.
+    """
+    if os.path.isdir(os.path.join(local_path, ".git")):
+        # Repo exists, just fetch tags
+        result = _run(["git", "-C", local_path, "fetch", "--tags", "--force"])
+        if result.returncode != 0:
+            logger.warning("git fetch tags failed for %s: %s", local_path, result.stderr)
+    else:
+        # Clone repo with minimal depth (we only need tags)
+        os.makedirs(os.path.dirname(local_path), exist_ok=True)
+        result = _run(["git", "clone", "--filter=blob:none", git_url, local_path])
+        if result.returncode != 0:
+            raise HTTPException(status_code=500, detail=f"git clone failed: {result.stderr}")
+        logger.info("Cloned repo to %s", local_path)
+
+    return local_path
 
 
 @router.get("/tags", response_model=list[AppTagResponse])
@@ -293,20 +317,18 @@ def get_tags(
         logger.warning("App %s not found in apps-git.yaml", appName)
         raise HTTPException(status_code=404, detail=f"App '{appName}' not configured in apps-git.yaml")
 
-    app_info = apps_config[appName]
-    git_url = app_info.get("git_url")
-    branch = app_info.get("branch", "master")
+    # Get git URL (simple string format)
+    git_url = apps_config[appName]
+    if not git_url or not isinstance(git_url, str):
+        raise HTTPException(status_code=404, detail=f"Invalid git_url for app '{appName}'")
 
-    if not git_url:
-        raise HTTPException(status_code=404, detail=f"git_url not configured for app '{appName}'")
-
-    # Sync app repo
+    # Fetch tags from app repo
     local_path = os.path.join(APP_REPOS_LOCAL_PATH, appName)
     try:
-        _sync_repo(inject_token(git_url), local_path, branch)
+        _fetch_tags_from_repo(inject_token(git_url), local_path)
     except Exception as e:
-        logger.error("Failed to sync app repo %s: %s", appName, str(e))
-        raise HTTPException(status_code=503, detail=f"Failed to sync app repository: {str(e)}")
+        logger.error("Failed to fetch tags for %s: %s", appName, str(e))
+        raise HTTPException(status_code=503, detail=f"Failed to fetch tags: {str(e)}")
 
     # Get all git tags from app repo
     result = _run([
