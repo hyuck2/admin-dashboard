@@ -138,92 +138,82 @@ export default function AppsPage() {
                 const appKey = `${app.appName}-${app.env}`
                 const isExpanded = expandedApps.has(appKey)
                 return (
-                  <tr key={appKey} className="border-b border-border-primary last:border-0">
-                    <td colSpan={8} className="p-0">
-                      {/* Main row */}
-                      <div className="flex items-center px-4 py-2.5 hover:bg-bg-hover">
+                  <>
+                    {/* Main row */}
+                    <tr key={appKey} className="border-b border-border-primary hover:bg-bg-hover">
+                      <td className="px-4 py-2.5">
                         <button
                           onClick={() => toggleExpand(appKey)}
-                          className="mr-2 text-text-tertiary hover:text-text-primary"
+                          className="text-text-tertiary hover:text-text-primary"
                         >
                           {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
                         </button>
-                        <div className="flex-1 grid grid-cols-7 gap-4 items-center">
-                          <span className="font-medium text-text-primary">{app.appName}</span>
-                          <Badge variant={app.env === 'prod' ? 'danger' : 'default'}>{app.env}</Badge>
-                          <span className="text-text-primary">{app.deployVersion}</span>
-                          <Badge variant={app.overallSyncStatus === 'Synced' ? 'success' : 'danger'}>
-                            {app.overallSyncStatus}
-                          </Badge>
-                          <span className="text-text-secondary">{app.components.length}개</span>
-                          <span className="text-text-primary">{app.totalReplicaCurrent}/{app.totalReplicaDesired}</span>
-                          <div>
-                            {canDeploy(app.appName) && (
-                              <Dropdown
-                                trigger={
-                                  <button className="p-1 rounded-md hover:bg-bg-hover text-text-tertiary">
-                                    <MoreHorizontal size={16} />
-                                  </button>
-                                }
-                                items={[
-                                  { label: 'Rollback', onClick: () => setRollbackTarget(app) },
-                                ]}
-                              />
-                            )}
-                          </div>
-                        </div>
-                      </div>
+                      </td>
+                      <td className="px-4 py-2.5 font-medium text-text-primary">{app.appName}</td>
+                      <td className="px-4 py-2.5">
+                        <Badge variant={app.env === 'prod' ? 'danger' : 'default'}>{app.env}</Badge>
+                      </td>
+                      <td className="px-4 py-2.5 text-text-primary">{app.deployVersion}</td>
+                      <td className="px-4 py-2.5">
+                        <Badge variant={app.overallSyncStatus === 'Synced' ? 'success' : 'danger'}>
+                          {app.overallSyncStatus}
+                        </Badge>
+                      </td>
+                      <td className="px-4 py-2.5 text-text-secondary">{app.components.length}개</td>
+                      <td className="px-4 py-2.5 text-text-primary">{app.totalReplicaCurrent}/{app.totalReplicaDesired}</td>
+                      <td className="px-4 py-2.5">
+                        {canDeploy(app.appName) && (
+                          <Dropdown
+                            trigger={
+                              <button className="p-1 rounded-md hover:bg-bg-hover text-text-tertiary">
+                                <MoreHorizontal size={16} />
+                              </button>
+                            }
+                            items={[
+                              { label: 'Rollback', onClick: () => setRollbackTarget(app) },
+                            ]}
+                          />
+                        )}
+                      </td>
+                    </tr>
 
-                      {/* Expanded component rows */}
-                      {isExpanded && (
-                        <div className="bg-bg-secondary border-t border-border-primary">
-                          <table className="w-full text-sm">
-                            <thead className="bg-bg-tertiary">
-                              <tr>
-                                <th className="px-12 py-2 text-left text-text-tertiary font-normal text-xs">컴포넌트</th>
-                                <th className="px-4 py-2 text-left text-text-tertiary font-normal text-xs">배포 버전</th>
-                                <th className="px-4 py-2 text-left text-text-tertiary font-normal text-xs">K8s 버전</th>
-                                <th className="px-4 py-2 text-left text-text-tertiary font-normal text-xs">상태</th>
-                                <th className="px-4 py-2 text-left text-text-tertiary font-normal text-xs">Replica</th>
-                                <th className="px-4 py-2 text-left text-text-tertiary font-normal text-xs w-32">액션</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {app.components.map((comp) => (
-                                <tr key={comp.name} className="border-t border-border-primary hover:bg-bg-hover">
-                                  <td className="px-12 py-2.5 text-text-primary">{comp.name}</td>
-                                  <td className="px-4 py-2.5 text-text-secondary">{comp.deployVersion}</td>
-                                  <td className="px-4 py-2.5 text-text-primary flex items-center gap-1">
-                                    {comp.k8sVersion}
-                                    {comp.syncStatus === 'OutOfSync' && (
-                                      <AlertTriangle size={14} className="text-danger" />
-                                    )}
-                                  </td>
-                                  <td className="px-4 py-2.5">
-                                    <Badge variant={comp.syncStatus === 'Synced' ? 'success' : 'danger'}>
-                                      {comp.syncStatus === 'Synced' ? '✓' : '⚠'}
-                                    </Badge>
-                                  </td>
-                                  <td className="px-4 py-2.5 text-text-primary">{comp.replicaCurrent}/{comp.replicaDesired}</td>
-                                  <td className="px-4 py-2.5">
-                                    {canDeploy(app.appName) && (
-                                      <Button
-                                        size="sm"
-                                        variant="ghost"
-                                        onClick={() => setReplicaTarget({ app, component: comp })}
-                                      >
-                                        Scale
-                                      </Button>
-                                    )}
-                                  </td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      )}
-                    </td>
-                  </tr>
+                    {/* Expanded component rows */}
+                    {isExpanded && app.components.map((comp) => (
+                      <tr key={`${appKey}-${comp.name}`} className="bg-bg-secondary border-b border-border-primary hover:bg-bg-hover">
+                        <td className="px-4 py-2.5"></td>
+                        <td className="px-4 py-2.5 text-text-primary pl-8">
+                          <span className="text-xs text-text-tertiary mr-2">└</span>
+                          {comp.name}
+                        </td>
+                        <td className="px-4 py-2.5 text-text-secondary text-xs">-</td>
+                        <td className="px-4 py-2.5 text-text-secondary text-xs">
+                          Deploy: {comp.deployVersion}<br/>
+                          K8s: {comp.k8sVersion}
+                          {comp.syncStatus === 'OutOfSync' && (
+                            <AlertTriangle size={12} className="inline ml-1 text-danger" />
+                          )}
+                        </td>
+                        <td className="px-4 py-2.5">
+                          <Badge variant={comp.syncStatus === 'Synced' ? 'success' : 'danger'}>
+                            {comp.syncStatus === 'Synced' ? '✓' : '⚠'}
+                          </Badge>
+                        </td>
+                        <td className="px-4 py-2.5 text-xs text-text-tertiary">-</td>
+                        <td className="px-4 py-2.5 text-text-primary">{comp.replicaCurrent}/{comp.replicaDesired}</td>
+                        <td className="px-4 py-2.5">
+                          {canDeploy(app.appName) && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => setReplicaTarget({ app, component: comp })}
+                            >
+                              Scale
+                            </Button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </>
                 )
               })
             )}
