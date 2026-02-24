@@ -419,8 +419,37 @@ def change_replica(
     db: Session = Depends(get_db),
 ):
     require_permission(current_user, "app_deploy", req.appName, "write")
-    ns = f"{req.appName}-{req.env}"
-    deploy_name = f"{req.componentName}-{req.env}"
+
+    # Namespace: {env}-{appName} (e.g., prod-project1)
+    ns = f"{req.env}-{req.appName}"
+
+    # Deployment name: read from component's common.yaml
+    try:
+        deploy_path = _sync_banana_deploy()
+    except Exception as e:
+        logger.error("Failed to sync deploy repo: %s", str(e))
+        raise HTTPException(status_code=503, detail="Deploy repository not configured.")
+
+    # Read deployment name from common.yaml
+    common_yaml_path = os.path.join(deploy_path, req.appName, req.componentName, "common.yaml")
+    deploy_name = req.componentName  # fallback
+
+    try:
+        with open(common_yaml_path, "r") as f:
+            common_data = yaml.safe_load(f)
+        if common_data:
+            app_name_from_yaml = common_data.get("app", {}).get("name")
+            if not app_name_from_yaml:
+                app_name_from_yaml = common_data.get("appname")
+            if app_name_from_yaml:
+                deploy_name = app_name_from_yaml
+                logger.debug("Using deployment name from yaml for scale: %s", deploy_name)
+            else:
+                logger.warning("No app.name or appname found in %s for scale, using component name: %s", common_yaml_path, req.componentName)
+    except Exception as e:
+        logger.warning("Failed to read deployment name from %s for scale: %s, using component name: %s", common_yaml_path, str(e), req.componentName)
+
+    logger.info("Scaling deployment %s in namespace %s to %d replicas", deploy_name, ns, req.replicas)
 
     result = _run([
         "kubectl", "scale", "deploy", deploy_name,
