@@ -3,6 +3,7 @@ import { ThemeProvider } from './contexts/ThemeContext'
 import { AuthProvider } from './contexts/AuthContext'
 import { SidebarProvider } from './contexts/SidebarContext'
 import ProtectedRoute from './components/common/ProtectedRoute'
+import PageProtectedRoute from './components/common/PageProtectedRoute'
 import AppLayout from './components/layout/AppLayout'
 import LoginPage from './pages/login/LoginPage'
 import ChangePasswordPage from './pages/login/ChangePasswordPage'
@@ -37,17 +38,17 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       >
-        <Route path="/" element={<HomePage />} />
-        <Route path="/apps" element={<AppsPage />} />
-        <Route path="/users" element={<UserManagementPage />} />
-        <Route path="/k8s" element={<K8sPage />} />
-        <Route path="/k8s/:context" element={<ClusterDetailPage />} />
-        <Route path="/k8s/:context/:namespace" element={<NamespaceRedirect />} />
-        <Route path="/k8s/:context/:namespace/:name" element={<DeploymentDetailPage />} />
-        <Route path="/servers" element={<ServerManagementPage />} />
-        <Route path="/servers/prometheus/:id" element={<MetricSourceDetailPage />} />
-        <Route path="/servers/ansible/executions/:id" element={<AnsibleExecutionDetailPage />} />
-        <Route path="/audit" element={<AuditLogPage />} />
+        <Route path="/" element={<PageProtectedRoute pageId="home"><HomePage /></PageProtectedRoute>} />
+        <Route path="/apps" element={<PageProtectedRoute pageId="apps"><AppsPage /></PageProtectedRoute>} />
+        <Route path="/users" element={<PageProtectedRoute pageId="users"><UserManagementPage /></PageProtectedRoute>} />
+        <Route path="/k8s" element={<PageProtectedRoute pageId="k8s"><K8sPage /></PageProtectedRoute>} />
+        <Route path="/k8s/:context" element={<PageProtectedRoute pageId="k8s"><ClusterDetailPage /></PageProtectedRoute>} />
+        <Route path="/k8s/:context/:namespace" element={<PageProtectedRoute pageId="k8s"><NamespaceRedirect /></PageProtectedRoute>} />
+        <Route path="/k8s/:context/:namespace/:name" element={<PageProtectedRoute pageId="k8s"><DeploymentDetailPage /></PageProtectedRoute>} />
+        <Route path="/servers" element={<PageProtectedRoute pageId="servers"><ServerManagementPage /></PageProtectedRoute>} />
+        <Route path="/servers/prometheus/:id" element={<PageProtectedRoute pageId="servers"><MetricSourceDetailPage /></PageProtectedRoute>} />
+        <Route path="/servers/ansible/executions/:id" element={<PageProtectedRoute pageId="servers"><AnsibleExecutionDetailPage /></PageProtectedRoute>} />
+        <Route path="/audit" element={<PageProtectedRoute pageId="audit"><AuditLogPage /></PageProtectedRoute>} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

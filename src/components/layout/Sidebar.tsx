@@ -1,13 +1,33 @@
-import { useContext } from 'react'
+import { useContext, useMemo } from 'react'
 import { useLocation, Link } from 'react-router-dom'
 import { PanelLeftClose, PanelLeftOpen } from 'lucide-react'
 import { SidebarContext } from '../../contexts/SidebarContext'
+import { useAuth } from '../../hooks/useAuth'
 import { MENU_ITEMS } from '../../constants/menu'
+import { hasPageAccess } from '../../utils/permissions'
 import { cn } from '../../utils/cn'
 
 export default function Sidebar() {
   const { collapsed, toggleSidebar } = useContext(SidebarContext)!
+  const { user } = useAuth()
   const location = useLocation()
+
+  // Filter menu items based on user permissions
+  const visibleMenuItems = useMemo(() => {
+    if (!user) return []
+
+    // Show all menu items to admins
+    if (user.role === 'admin') return MENU_ITEMS
+
+    // Filter based on page_access permissions
+    return MENU_ITEMS.filter((item) => {
+      // Home page is always visible
+      if (item.id === 'home') return true
+
+      // Check if user has page_access permission
+      return hasPageAccess(user, item.id)
+    })
+  }, [user])
 
   return (
     <aside
@@ -25,7 +45,7 @@ export default function Sidebar() {
       </div>
 
       <nav className="flex-1 py-2 overflow-y-auto">
-        {MENU_ITEMS.map((item) => {
+        {visibleMenuItems.map((item) => {
           const isActive = item.path === '/'
             ? location.pathname === '/'
             : location.pathname.startsWith(item.path)
