@@ -105,16 +105,27 @@ def _get_k8s_info(component_name: str, env: str, repo_name: str = None) -> dict:
     ])
 
     if result.returncode != 0:
+        logger.debug("kubectl get deploy failed for %s in ns %s: %s", deploy_name, ns, result.stderr)
         return {"k8sVersion": "unknown", "replicaDesired": 0, "replicaCurrent": 0}
 
-    parts = result.stdout.strip().split(" ", 2)
-    desired = int(parts[0]) if len(parts) > 0 and parts[0] else 0
-    current = int(parts[1]) if len(parts) > 1 and parts[1] else 0
-    image = parts[2] if len(parts) > 2 else ""
+    try:
+        parts = result.stdout.strip().split(" ", 2)
 
-    k8s_version = image.split(":")[-1] if ":" in image else "unknown"
+        # Parse replicas (handle empty strings and whitespace)
+        desired_str = parts[0].strip() if len(parts) > 0 else ""
+        current_str = parts[1].strip() if len(parts) > 1 else ""
 
-    return {"k8sVersion": k8s_version, "replicaDesired": desired, "replicaCurrent": current}
+        desired = int(desired_str) if desired_str and desired_str.isdigit() else 0
+        current = int(current_str) if current_str and current_str.isdigit() else 0
+
+        # Parse image
+        image = parts[2].strip() if len(parts) > 2 else ""
+        k8s_version = image.split(":")[-1] if ":" in image else "unknown"
+
+        return {"k8sVersion": k8s_version, "replicaDesired": desired, "replicaCurrent": current}
+    except (ValueError, IndexError) as e:
+        logger.warning("Failed to parse kubectl output for %s: %s (output: %s)", deploy_name, str(e), result.stdout[:100])
+        return {"k8sVersion": "unknown", "replicaDesired": 0, "replicaCurrent": 0}
 
 
 # ---------------------------------------------------------------------------
