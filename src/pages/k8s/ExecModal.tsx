@@ -55,7 +55,7 @@ export default function ExecModal({ context, namespace, deploymentName, onClose 
     const wsProto = protocol === 'https:' ? 'wss:' : 'ws:'
     const match = pathname.match(/^(\/[^/]+\/[^/]+)/)
     const basePath = match ? `${match[1]}/api` : '/api'
-    const wsUrl = `${wsProto}//${host}${basePath}/ws/exec?context=${encodeURIComponent(context)}&namespace=${encodeURIComponent(namespace)}&pod=${encodeURIComponent(selectedPod)}&container=${encodeURIComponent(selectedContainer)}&token=${encodeURIComponent(token)}`
+    const wsUrl = `${wsProto}//${host}${basePath}/k8s/ws/exec?context=${encodeURIComponent(context)}&namespace=${encodeURIComponent(namespace)}&pod=${encodeURIComponent(selectedPod)}&container=${encodeURIComponent(selectedContainer)}&token=${encodeURIComponent(token)}`
 
     // Dynamically import xterm
     const { Terminal } = await import('@xterm/xterm')
