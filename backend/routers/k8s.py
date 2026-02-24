@@ -217,39 +217,45 @@ def list_nodes(context: str, current_user: User = Depends(get_current_user)):
 # ---------------------------------------------------------------------------
 
 @router.get("/clusters/{context}/namespaces", response_model=list[NamespaceInfoResponse])
-def list_namespaces(context: str, current_user: User = Depends(get_current_user)):
+def list_namespaces(
+    context: str,
+    skip_resources: bool = Query(False, description="Skip CPU/Memory metrics for faster response"),
+    current_user: User = Depends(get_current_user)
+):
     try:
         core = _k8s.core_v1(context)
         namespaces = core.list_namespace().items
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-    # Pod metrics per namespace
     ns_metrics: dict[str, dict] = {}
-    try:
-        metrics = _k8s.custom_objects(context).list_cluster_custom_object(
-            "metrics.k8s.io", "v1beta1", "pods"
-        )
-        for item in metrics.get("items", []):
-            ns = item["metadata"]["namespace"]
-            if ns not in ns_metrics:
-                ns_metrics[ns] = {"cpu": 0, "memory": 0}
-            for container in item.get("containers", []):
-                usage = container.get("usage", {})
-                ns_metrics[ns]["cpu"] += parse_cpu(usage.get("cpu", "0"))
-                ns_metrics[ns]["memory"] += parse_memory(usage.get("memory", "0"))
-    except Exception:
-        pass
-
-    # Pod counts per namespace
     ns_pod_counts: dict[str, int] = {}
-    try:
-        pods = core.list_pod_for_all_namespaces().items
-        for pod in pods:
-            ns = pod.metadata.namespace
-            ns_pod_counts[ns] = ns_pod_counts.get(ns, 0) + 1
-    except Exception:
-        pass
+
+    if not skip_resources:
+        # Pod metrics per namespace
+        try:
+            metrics = _k8s.custom_objects(context).list_cluster_custom_object(
+                "metrics.k8s.io", "v1beta1", "pods"
+            )
+            for item in metrics.get("items", []):
+                ns = item["metadata"]["namespace"]
+                if ns not in ns_metrics:
+                    ns_metrics[ns] = {"cpu": 0, "memory": 0}
+                for container in item.get("containers", []):
+                    usage = container.get("usage", {})
+                    ns_metrics[ns]["cpu"] += parse_cpu(usage.get("cpu", "0"))
+                    ns_metrics[ns]["memory"] += parse_memory(usage.get("memory", "0"))
+        except Exception:
+            pass
+
+        # Pod counts per namespace
+        try:
+            pods = core.list_pod_for_all_namespaces().items
+            for pod in pods:
+                ns = pod.metadata.namespace
+                ns_pod_counts[ns] = ns_pod_counts.get(ns, 0) + 1
+        except Exception:
+            pass
 
     result = []
     for ns in namespaces:
@@ -258,9 +264,9 @@ def list_namespaces(context: str, current_user: User = Depends(get_current_user)
         result.append(NamespaceInfoResponse(
             name=name,
             status=ns.status.phase if ns.status else "Unknown",
-            cpuUsage=round(m["cpu"] / 1000, 3),  # millicores -> cores
-            memoryUsage=m["memory"],
-            podCount=ns_pod_counts.get(name, 0),
+            cpuUsage=round(m["cpu"] / 1000, 3) if not skip_resources else 0,  # millicores -> cores
+            memoryUsage=m["memory"] if not skip_resources else 0,
+            podCount=ns_pod_counts.get(name, 0) if not skip_resources else 0,
             createdAt=ns.metadata.creation_timestamp.isoformat() if ns.metadata.creation_timestamp else None,
         ))
 

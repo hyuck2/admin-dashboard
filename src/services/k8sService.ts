@@ -18,8 +18,9 @@ export const k8sService = {
     return apiClient<NodeInfo[]>('GET', `/k8s/clusters/${context}/nodes`)
   },
 
-  getNamespaces(context: string) {
-    return apiClient<NamespaceInfo[]>('GET', `/k8s/clusters/${context}/namespaces`)
+  getNamespaces(context: string, skipResources = false) {
+    const params = skipResources ? '?skip_resources=true' : ''
+    return apiClient<NamespaceInfo[]>('GET', `/k8s/clusters/${context}/namespaces${params}`)
   },
 
   getAllDeployments(context: string) {

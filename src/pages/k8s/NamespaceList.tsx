@@ -18,14 +18,25 @@ function formatBytes(bytes: number): string {
 export default function NamespaceList({ context }: { context: string }) {
   const [namespaces, setNamespaces] = useState<NamespaceInfo[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadingResources, setLoadingResources] = useState(false)
   const [search, setSearch] = useState('')
 
   const fetch = async () => {
     setLoading(true)
     try {
-      setNamespaces(await k8sService.getNamespaces(context))
-    } finally {
+      // Step 1: Fast load without resources
+      const basicData = await k8sService.getNamespaces(context, true)
+      setNamespaces(basicData)
       setLoading(false)
+
+      // Step 2: Load resources asynchronously
+      setLoadingResources(true)
+      const fullData = await k8sService.getNamespaces(context, false)
+      setNamespaces(fullData)
+    } catch (error) {
+      // Even if resource loading fails, keep basic data
+    } finally {
+      setLoadingResources(false)
     }
   }
 
@@ -63,17 +74,23 @@ export default function NamespaceList({ context }: { context: string }) {
     {
       key: 'pods',
       header: 'Pods',
-      render: (ns: NamespaceInfo) => ns.podCount,
+      render: (ns: NamespaceInfo) => loadingResources && ns.podCount === 0
+        ? <span className="inline-block w-8 h-4 bg-bg-tertiary animate-pulse rounded" />
+        : ns.podCount,
     },
     {
       key: 'cpu',
       header: 'CPU (cores)',
-      render: (ns: NamespaceInfo) => ns.cpuUsage > 0 ? ns.cpuUsage.toFixed(3) : '-',
+      render: (ns: NamespaceInfo) => loadingResources && ns.cpuUsage === 0
+        ? <span className="inline-block w-16 h-4 bg-bg-tertiary animate-pulse rounded" />
+        : ns.cpuUsage > 0 ? ns.cpuUsage.toFixed(3) : '-',
     },
     {
       key: 'memory',
       header: 'Memory',
-      render: (ns: NamespaceInfo) => ns.memoryUsage > 0 ? formatBytes(ns.memoryUsage) : '-',
+      render: (ns: NamespaceInfo) => loadingResources && ns.memoryUsage === 0
+        ? <span className="inline-block w-20 h-4 bg-bg-tertiary animate-pulse rounded" />
+        : ns.memoryUsage > 0 ? formatBytes(ns.memoryUsage) : '-',
     },
   ]
 
