@@ -145,8 +145,8 @@ CREATE TABLE IF NOT EXISTS ansible_executions (
   FOREIGN KEY (started_by) REFERENCES users(id) ON DELETE CASCADE
 );
 
--- Seed: permissions
-INSERT INTO permissions (type, target, action) VALUES
+-- Seed: permissions (skip if exists)
+INSERT IGNORE INTO permissions (type, target, action) VALUES
   ('app_deploy', 'app1', 'write'),
   ('app_deploy', 'app2', 'write'),
   ('page_access', 'apps', 'read'),
@@ -156,16 +156,16 @@ INSERT INTO permissions (type, target, action) VALUES
   ('page_access', 'servers', 'read'),
   ('page_access', 'servers', 'write');
 
--- Seed: admin user (password: admin)
-INSERT INTO users (user_id, password_hash, department, role, is_active, password_changed)
-VALUES ('admin', '$2b$12$KIXQ8VPnOGDlGmYOA0t3v.nw9mzAUzADfTfrMWIrVLRdT.tMUqzr.', 'IT', 'admin', TRUE, FALSE);
+-- Seed: admin user (password: admin, skip if exists)
+INSERT IGNORE INTO users (user_id, password_hash, department, role, is_active, password_changed)
+VALUES ('admin', '$2b$12$KIXQ8VPnOGDlGmYOA0t3v.nw9mzAUzADfTfrMWIrVLRdT.tMUqzr.', 'IT', 'admin', TRUE, TRUE);
 
--- Seed: admin group
-INSERT INTO `groups` (name, description) VALUES ('관리자', '시스템 관리자 그룹');
+-- Seed: admin group (skip if exists)
+INSERT IGNORE INTO `groups` (name, description) VALUES ('관리자', '시스템 관리자 그룹');
 
--- Seed: admin user -> admin group
-INSERT INTO user_groups (user_id, group_id) VALUES (1, 1);
+-- Seed: admin user -> admin group (skip if exists)
+INSERT IGNORE INTO user_groups (user_id, group_id) VALUES (1, 1);
 
--- Seed: admin group -> all permissions
-INSERT INTO group_permissions (group_id, permission_id) VALUES
+-- Seed: admin group -> all permissions (skip if exists)
+INSERT IGNORE INTO group_permissions (group_id, permission_id) VALUES
   (1, 1), (1, 2), (1, 3), (1, 4), (1, 5), (1, 6), (1, 7), (1, 8);
